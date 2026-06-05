@@ -1,3 +1,7 @@
+
+## use powershell syntax when executing terminal commands.
+
+
 ## Application Building Context
 
 Read the following files in order before implementing
