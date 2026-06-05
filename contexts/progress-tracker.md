@@ -16,7 +16,8 @@ Update this file after every meaningful implementation change.
   - [x] `contexts/specs/01-project-setup-database-spec.md` (React 19 + Vite environment setup, SQLite tables schema, Option A math utility)
   - [x] `contexts/specs/02-financial-logger-spec.md` (Dual-stream financial inputs, expense categorization, strict boundary validations)
   - [x] `contexts/specs/03-inventory-shipment-manager-spec.md` (Multi-brand shipment batch logs, proportional cost allocation integration, database transaction blocks)
-  - [x] `contexts/specs/04-dashboard-spec.md` (iOS HIG metric aggregates grid, dynamic query calculations, inventory sales decrement flows)
+- Phase 04: iOS HIG-Compliant Dashboard:
+  - [x] Implementing dashboard metric widgets, dynamic calculation aggregates, and stock-decrement sales triggers.
 - **Phase 01: Project Setup & Database Configuration**:
   - [x] Setup of React + Vite SPA structure.
   - [x] Integration of `wa-sqlite` and `IndexedDB` storage systems with Drizzle ORM client.
@@ -36,6 +37,12 @@ Update this file after every meaningful implementation change.
   - [x] Added tab bar navigation inside `App.tsx` (switching between Finances and Inventory tabs) and integrated the new components.
   - [x] Designed responsive Stock Card List with stock status badges (green/amber/red) and wholesale vs true unit cost outputs.
   - [x] Confirmed end-to-end production compilation and vitest suite execution.
+- **Phase 04: iOS HIG-Compliant Dashboard**:
+  - [x] Designed and built `DashboardView.tsx` with a 2x2 grid of dynamic financial aggregate cards and an active stock list.
+  - [x] Added `fetchAggregatedMetrics` dynamic query inside `src/db/queries/dashboard.ts` to aggregate transaction categories.
+  - [x] Coded `executeProductSale` database transaction query inside `src/db/queries/inventory.ts` verifying stock availability, decrementing count, and logging income.
+  - [x] Developed `SellSheet.tsx` iOS-style bottom action sheet for entering retail sale price and handling input validation.
+  - [x] Integrated the Dashboard tab bar option and linked modal actions and refreshing loops in `App.tsx`.
 
 ## In Progress
 
@@ -43,8 +50,7 @@ Update this file after every meaningful implementation change.
 
 ## Next Up
 
-- **Phase 04: iOS HIG-Compliant Dashboard**:
-  - Implementing dashboard metric widgets, dynamic calculation aggregates, and stock-decrement sales triggers.
+- None.
 
 ## Open Questions
 
@@ -69,5 +75,11 @@ Update this file after every meaningful implementation change.
 - Implemented multi-brand dynamic batch input form `ShipmentForm.tsx` with floating labels, deletion behaviors, and live Option A calculations.
 - Structured bottom tab navigation inside `App.tsx` matching iOS HIG patterns for separating Finances and Inventory views.
 - Created reactive Stock Card List with stock status warning badges.
+- Created `src/db/queries/dashboard.ts` to compute dynamic aggregates for Tailoring Net, Clothing Net, Total Business Profit, and Safety Pocket.
+- Implemented `executeProductSale` database transaction block inside `src/db/queries/inventory.ts` enforcing quantity boundaries.
+- Built `SellSheet.tsx` bottom action sheet for logging retail prices and executing sale decrements.
+- Created `DashboardView.tsx` component with iOS metrics grid and active stock table.
+- Integrated dashboard navigation and modal toggles inside `App.tsx`.
+
 
 

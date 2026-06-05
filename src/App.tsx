@@ -2,20 +2,31 @@ import { useState, useEffect } from 'react';
 import { initDb, getDb } from './db/client';
 import { transactions } from './db/schema';
 import { calculateOptionA } from './lib/math/allocator';
-import { Terminal, Database, Calculator, RefreshCw, CheckCircle2, AlertCircle, Plus, DollarSign, Package } from 'lucide-react';
+import { Terminal, Database, Calculator, RefreshCw, CheckCircle2, AlertCircle, Plus, DollarSign, Package, LayoutDashboard } from 'lucide-react';
 import { getTransactions } from './db/queries/transactions';
 import { getInventoryItems } from './db/queries/inventory';
+import { fetchAggregatedMetrics } from './db/queries/dashboard';
 import TransactionForm from './components/TransactionForm';
 import ShipmentForm from './components/ShipmentForm';
+import DashboardView from './components/DashboardView';
+import SellSheet from './components/SellSheet';
 
 function App() {
   const [dbStatus, setDbStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [dbError, setDbError] = useState<string | null>(null);
   const [testRecords, setTestRecords] = useState<any[]>([]);
   const [inventoryRecords, setInventoryRecords] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'finances' | 'inventory'>('finances');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'finances' | 'inventory'>('dashboard');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isShipmentFormOpen, setIsShipmentFormOpen] = useState(false);
+  const [isSellOpen, setIsSellOpen] = useState(false);
+  const [selectedSellItem, setSelectedSellItem] = useState<any | null>(null);
+  const [metrics, setMetrics] = useState({
+    tailoringNet: 0,
+    clothingNet: 0,
+    totalBusinessProfit: 0,
+    safetyPocket: 0
+  });
   
   // Math playground state
   const [courierFee, setCourierFee] = useState<string>('150.00');
@@ -35,6 +46,7 @@ function App() {
         setDbStatus('ready');
         await refreshTestRecords();
         await refreshInventoryRecords();
+        await refreshMetrics();
       } catch (err: any) {
         console.error('Failed to initialize local sqlite db:', err);
         setDbStatus('error');
@@ -94,6 +106,15 @@ function App() {
     }
   };
 
+  const refreshMetrics = async () => {
+    try {
+      const data = await fetchAggregatedMetrics();
+      setMetrics(data);
+    } catch (err) {
+      console.error('Error listing aggregated metrics:', err);
+    }
+  };
+
   const runInsertTest = async () => {
     try {
       const db = getDb();
@@ -119,6 +140,7 @@ function App() {
       });
       
       await refreshTestRecords();
+      await refreshMetrics();
     } catch (err: any) {
       alert('Failed to insert record: ' + err.message);
     }
@@ -129,6 +151,7 @@ function App() {
       const db = getDb();
       await db.delete(transactions);
       await refreshTestRecords();
+      await refreshMetrics();
     } catch (err: any) {
       alert('Failed to clear records: ' + err.message);
     }
@@ -141,7 +164,7 @@ function App() {
         {/* Navigation Bar Header */}
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold tracking-tight text-slate-900">
-            {activeTab === 'finances' ? 'ClothEx Finances' : 'ClothEx Stock Inventory'}
+            {activeTab === 'dashboard' ? 'ClothEx Dashboard' : activeTab === 'finances' ? 'ClothEx Finances' : 'ClothEx Stock Inventory'}
           </h1>
           <div className="flex items-center gap-1.5">
             {dbStatus === 'loading' && (
@@ -174,7 +197,16 @@ function App() {
         )}
 
         <div className="p-6">
-          {activeTab === 'finances' ? (
+          {activeTab === 'dashboard' ? (
+            <DashboardView
+              metrics={metrics}
+              inventoryItems={inventoryRecords}
+              onSellClick={(item) => {
+                setSelectedSellItem(item);
+                setIsSellOpen(true);
+              }}
+            />
+          ) : activeTab === 'finances' ? (
             <div className="space-y-8 animate-fade-in">
               {/* Section: SQLite & IndexedDB VFS Info */}
               <section className="space-y-3">
@@ -414,21 +446,30 @@ function App() {
       {/* Floating Action Button (fixed position above tab bar) */}
       <button
         onClick={() => {
-          if (activeTab === 'finances') {
-            setIsFormOpen(true);
-          } else {
+          if (activeTab === 'inventory') {
             setIsShipmentFormOpen(true);
+          } else {
+            setIsFormOpen(true);
           }
         }}
         disabled={dbStatus !== 'ready'}
         className="fixed bottom-20 right-6 w-14 h-14 bg-sky-600 active:bg-sky-700 hover:bg-sky-500 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 z-40 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
-        aria-label={activeTab === 'finances' ? 'Add Transaction' : 'Import Shipment'}
+        aria-label={activeTab === 'inventory' ? 'Import Shipment' : 'Add Transaction'}
       >
         <Plus className="w-6 h-6" />
       </button>
 
       {/* iOS-Style Bottom Tab Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2.5 px-6 flex justify-around items-center z-40 shadow-lg min-h-[64px]">
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex flex-col items-center gap-1 text-[11px] font-semibold min-h-[44px] min-w-[60px] justify-center transition-colors ${
+            activeTab === 'dashboard' ? 'text-sky-600' : 'text-slate-400 active:text-slate-600'
+          }`}
+        >
+          <LayoutDashboard className="w-5 h-5" />
+          <span>Dashboard</span>
+        </button>
         <button
           onClick={() => setActiveTab('finances')}
           className={`flex flex-col items-center gap-1 text-[11px] font-semibold min-h-[44px] min-w-[60px] justify-center transition-colors ${
@@ -453,8 +494,9 @@ function App() {
       <TransactionForm
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        onSave={() => {
-          refreshTestRecords();
+        onSave={async () => {
+          await refreshTestRecords();
+          await refreshMetrics();
         }}
       />
 
@@ -465,7 +507,23 @@ function App() {
         onSave={async () => {
           await refreshInventoryRecords();
           await refreshTestRecords(); // In case a courier fee is logged under transactions
+          await refreshMetrics();
         }}
+      />
+
+      {/* Product Sale execution sheet */}
+      <SellSheet
+        isOpen={isSellOpen}
+        onClose={() => {
+          setIsSellOpen(false);
+          setSelectedSellItem(null);
+        }}
+        onSave={async () => {
+          await refreshInventoryRecords();
+          await refreshMetrics();
+          await refreshTestRecords();
+        }}
+        item={selectedSellItem}
       />
     </div>
   );
