@@ -110,11 +110,13 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
       {/* Tailor Cat Shopkeeper Counter Box */}
       <section className="bg-purple-100 rounded-2xl border-[3px] border-black p-4 shadow-neobrutal flex flex-col sm:flex-row gap-4 items-center select-none">
         {/* Cat Sprite Box */}
-        <div className="w-20 h-20 shrink-0 bg-white border-2 border-black rounded-xl p-1 flex items-center justify-center shadow-neobrutal-sm">
+        <div className="w-20 h-20 shrink-0 bg-pink-200 border-2 border-black rounded-xl p-1 flex items-center justify-center shadow-neobrutal-sm">
           <img 
             src={mascot.image} 
             alt={mascot.title} 
-            className="w-full h-full object-contain pixelated"
+            className={`w-full h-full object-contain pixelated ${
+              mascot.image.includes('sad') ? 'animate-shake' : 'animate-bob'
+            }`}
             style={{ imageRendering: 'pixelated' }}
           />
         </div>
