@@ -4,11 +4,11 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-- **Development Phase 03**: Itemized Inventory & Shipment Manager
+- **Development Phase 04**: iOS HIG-Compliant Dashboard
 
 ## Current Goal
 
-- Implement tabular shipment batch forms, Courier Fee Option A allocation hooks, and database transaction blocks.
+- Implement dashboard metrics cards, dynamic calculation aggregates, and stock-decrement sales triggers.
 
 ## Completed
 
@@ -29,6 +29,13 @@ Update this file after every meaningful implementation change.
   - [x] Implemented strict validation checks for amounts (positive number boundaries) and description (non-blank).
   - [x] Created custom iOS-style centered Alert Modal overlay for displaying error boundary failures.
   - [x] Integrated form-triggering floating action button inside `App.tsx` and bound transactions refresh.
+- **Phase 03: Itemized Inventory & Shipment Manager**:
+  - [x] Designed and implemented `createShipmentTransaction` query inside `src/db/queries/shipments.ts` leveraging SQLite transactions.
+  - [x] Implemented `getInventoryItems` query inside `src/db/queries/inventory.ts` to retrieve stock lists.
+  - [x] Coded the dynamic batch input form `ShipmentForm.tsx` supporting variable item lines, deletion buttons, and live Option A true cost calculation.
+  - [x] Added tab bar navigation inside `App.tsx` (switching between Finances and Inventory tabs) and integrated the new components.
+  - [x] Designed responsive Stock Card List with stock status badges (green/amber/red) and wholesale vs true unit cost outputs.
+  - [x] Confirmed end-to-end production compilation and vitest suite execution.
 
 ## In Progress
 
@@ -36,8 +43,6 @@ Update this file after every meaningful implementation change.
 
 ## Next Up
 
-- **Phase 03: Itemized Inventory & Shipment Manager**:
-  - Building tabular shipment forms and transaction-wrapped db queries.
 - **Phase 04: iOS HIG-Compliant Dashboard**:
   - Implementing dashboard metric widgets, dynamic calculation aggregates, and stock-decrement sales triggers.
 
@@ -60,4 +65,9 @@ Update this file after every meaningful implementation change.
 - Created a separate database queries module `src/db/queries/transactions.ts` for database transaction actions.
 - Built a high-fidelity iOS HIG-compliant `TransactionForm` action sheet, with sub-selectors, state defaults, and micro-animations styled inside `src/index.css` using Tailwind CSS v4 variables.
 - Verified end-to-end project compilation (`npm run build`) and all tests passing (`npm run test`) with zero TypeScript, syntax, or linter warnings.
+- Coded database transaction queries inside `src/db/queries/shipments.ts` and `src/db/queries/inventory.ts` for atomic inventory management.
+- Implemented multi-brand dynamic batch input form `ShipmentForm.tsx` with floating labels, deletion behaviors, and live Option A calculations.
+- Structured bottom tab navigation inside `App.tsx` matching iOS HIG patterns for separating Finances and Inventory views.
+- Created reactive Stock Card List with stock status warning badges.
+
 
