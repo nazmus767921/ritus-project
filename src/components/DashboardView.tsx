@@ -61,7 +61,7 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
     // 1. Shelves are empty (no items logged)
     if (inventoryItems.length === 0) {
       return {
-        image: '/tailor_cat_neutral.png',
+        image: '/tailor_cat.png',
         dialogue: "আরে আপু, ক্যাশবাক্স তো বসাইছি কিন্তু দোকান তো ফাঁকা! আজকা কি বউনি হইবো না? ইনভেন্টরি ট্যাবে গিয়া জলদি কিছু মাল আমদানি করো মিয়াও! 📦",
         title: "টেইলর বিলাই (বউনি নাই)"
       };
@@ -74,7 +74,7 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
     // 3. Safety Pocket status checks
     if (metrics.safetyPocket < 0) {
       return {
-        image: '/tailor_cat_sad.png',
+        image: '/tailor_cat.png',
         dialogue: "হায় হায় আপু! লাভের গুড় পিঁপড়ায় খাইলো! পকেটে লাল বাতি জইলা গেছে, ফতুর দশা মিয়াও! নতুন মাল কেনা আপাতত বন্ধ রাখো! 🙀",
         title: "টেইলর বিলাই (লাল বাতি)"
       };
@@ -82,7 +82,7 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
 
     if (hasLowStock) {
       return {
-        image: '/tailor_cat_neutral.png',
+        image: '/tailor_cat.png',
         dialogue: "আরে মিয়াও! দোকানে কিছু মাল তো হাওয়া হইয়া ফক্কা! বউনি করার মতও কিছু নাই। কাস্টমার চিল্লাইবার আগে নতুন লট টানো! 🐾",
         title: "টেইলর বিলাই (মাল শেষ)"
       };
@@ -90,14 +90,14 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
 
     if (metrics.safetyPocket >= 5000) { // 50 Taka
       return {
-        image: '/tailor_cat_happy.png',
+        image: '/tailor_cat.png',
         dialogue: "পুরা ক্যালাও আপু! ক্যাশবাক্সে কড়কড়ে টাকা রেডি! নতুন কাপ্তান বা লট আমদানির টাইম আইসা গেছে, কোপায় দাও মিয়াও! 🧵",
         title: "টেইলর বিলাই (ক্যালাও)"
       };
     }
 
     return {
-      image: '/tailor_cat_neutral.png',
+      image: '/tailor_cat.png',
       dialogue: "মিয়াও! ক্যাশবাক্সের অবস্থা সুবিধার না আপু। হাত একটু টান করো, নাইলে ব্যবসা পুরা লাল বাতি হইয়া যাইবো! 🐾",
       title: "টেইলর বিলাই (সাবধানী)"
     };
@@ -108,16 +108,13 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Tailor Cat Shopkeeper Counter Box */}
-      <section className="bg-purple-100 rounded-2xl border-[3px] border-black p-4 shadow-neobrutal flex flex-col sm:flex-row gap-4 items-center select-none">
+      <section className="bg-[#fceec7] rounded-2xl border-[3px] border-black p-4 shadow-neobrutal flex flex-col sm:flex-row gap-4 items-center select-none">
         {/* Cat Sprite Box */}
-        <div className="w-20 h-20 shrink-0 bg-pink-200 border-2 border-black rounded-xl p-1 flex items-center justify-center shadow-neobrutal-sm">
+        <div className="w-20 h-20 shrink-0 bg-[#fceec7] border-2 border-black rounded-xl p-1 flex items-center justify-center shadow-neobrutal-sm">
           <img 
             src={mascot.image} 
             alt={mascot.title} 
-            className={`w-full h-full object-contain pixelated ${
-              mascot.image.includes('sad') ? 'animate-shake' : 'animate-bob'
-            }`}
-            style={{ imageRendering: 'pixelated' }}
+            className="w-full h-full object-contain"
           />
         </div>
 
