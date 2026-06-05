@@ -56,8 +56,85 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
     }
   ];
 
+  // Dynamic Tailor Cat Mascot logic
+  const getMascotConfig = () => {
+    // 1. Shelves are empty (no items logged)
+    if (inventoryItems.length === 0) {
+      return {
+        image: '/tailor_cat_neutral.png',
+        dialogue: "Hey meow! Our shelves are empty. Import a shipment under the Inventory tab to start selling! 📦",
+        title: "Tailor Cat (Advisor)"
+      };
+    }
+
+    // 2. Out of stock / Low stock warning
+    const lowStockItems = inventoryItems.filter(item => item.quantity <= 3);
+    const hasLowStock = lowStockItems.length > 0;
+    
+    // 3. Safety Pocket status checks
+    if (metrics.safetyPocket < 0) {
+      return {
+        image: '/tailor_cat_sad.png',
+        dialogue: "Oh no meow! We spent more than our business profits! Safety Pocket is empty! Stop buying inventory! 🙀",
+        title: "Tailor Cat (Panicking)"
+      };
+    }
+
+    if (hasLowStock) {
+      return {
+        image: '/tailor_cat_neutral.png',
+        dialogue: "Meow! Some of our inventory batches are running low or out of stock. Time to buy new batches! 🐾",
+        title: "Tailor Cat (Alert)"
+      };
+    }
+
+    if (metrics.safetyPocket >= 5000) { // 50 Taka
+      return {
+        image: '/tailor_cat_happy.png',
+        dialogue: "Purr! Our Safety Pocket is healthy! We can afford to buy more stock batches! Let's get crafting! 🧵",
+        title: "Tailor Cat (Happy)"
+      };
+    }
+
+    return {
+      image: '/tailor_cat_neutral.png',
+      dialogue: "Meow... Safety Pocket is running a bit low. Watch your personal spent, shopkeeper! 🐾",
+      title: "Tailor Cat (Cozy)"
+    };
+  };
+
+  const mascot = getMascotConfig();
+
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
+      {/* Tailor Cat Shopkeeper Counter Box */}
+      <section className="bg-purple-100 rounded-2xl border-[3px] border-black p-4 shadow-neobrutal flex flex-col sm:flex-row gap-4 items-center select-none">
+        {/* Cat Sprite Box */}
+        <div className="w-20 h-20 shrink-0 bg-white border-2 border-black rounded-xl p-1 flex items-center justify-center shadow-neobrutal-sm">
+          <img 
+            src={mascot.image} 
+            alt={mascot.title} 
+            className="w-full h-full object-contain pixelated"
+            style={{ imageRendering: 'pixelated' }}
+          />
+        </div>
+
+        {/* Dialog bubble */}
+        <div className="flex-1 bg-white border-2 border-black rounded-xl p-3 relative shadow-neobrutal-sm w-full">
+          {/* Bubble tail (neobrutalist style simple notch) */}
+          <div className="hidden sm:block absolute left-[-8px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white border-l-2 border-b-2 border-black rotate-45"></div>
+          
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-sans font-extrabold uppercase tracking-wider text-purple-600">
+              {mascot.title}
+            </span>
+            <p className="font-sans text-xs sm:text-sm font-semibold text-black leading-relaxed">
+              {mascot.dialogue}
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* 2x2 Metrics Grid */}
       <section className="grid grid-cols-2 gap-4">
         {metricCards.map((card, idx) => {
