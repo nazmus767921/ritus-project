@@ -62,8 +62,8 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
     if (inventoryItems.length === 0) {
       return {
         image: '/tailor_cat_neutral.png',
-        dialogue: "Hey meow! Our shelves are empty. Import a shipment under the Inventory tab to start selling! 📦",
-        title: "Tailor Cat (Advisor)"
+        dialogue: "আরে আপু, ক্যাশবাক্স তো বসাইছি কিন্তু দোকান তো ফাঁকা! আজকা কি বউনি হইবো না? ইনভেন্টরি ট্যাবে গিয়া জলদি কিছু মাল আমদানি করো মিয়াও! 📦",
+        title: "টেইলর বিলাই (বউনি নাই)"
       };
     }
 
@@ -75,31 +75,31 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
     if (metrics.safetyPocket < 0) {
       return {
         image: '/tailor_cat_sad.png',
-        dialogue: "Oh no meow! We spent more than our business profits! Safety Pocket is empty! Stop buying inventory! 🙀",
-        title: "Tailor Cat (Panicking)"
+        dialogue: "হায় হায় আপু! লাভের গুড় পিঁপড়ায় খাইলো! পকেটে লাল বাতি জইলা গেছে, ফতুর দশা মিয়াও! নতুন মাল কেনা আপাতত বন্ধ রাখো! 🙀",
+        title: "টেইলর বিলাই (লাল বাতি)"
       };
     }
 
     if (hasLowStock) {
       return {
         image: '/tailor_cat_neutral.png',
-        dialogue: "Meow! Some of our inventory batches are running low or out of stock. Time to buy new batches! 🐾",
-        title: "Tailor Cat (Alert)"
+        dialogue: "আরে মিয়াও! দোকানে কিছু মাল তো হাওয়া হইয়া ফক্কা! বউনি করার মতও কিছু নাই। কাস্টমার চিল্লাইবার আগে নতুন লট টানো! 🐾",
+        title: "টেইলর বিলাই (মাল শেষ)"
       };
     }
 
     if (metrics.safetyPocket >= 5000) { // 50 Taka
       return {
         image: '/tailor_cat_happy.png',
-        dialogue: "Purr! Our Safety Pocket is healthy! We can afford to buy more stock batches! Let's get crafting! 🧵",
-        title: "Tailor Cat (Happy)"
+        dialogue: "পুরা ক্যালাও আপু! ক্যাশবাক্সে কড়কড়ে টাকা রেডি! নতুন কাপ্তান বা লট আমদানির টাইম আইসা গেছে, কোপায় দাও মিয়াও! 🧵",
+        title: "টেইলর বিলাই (ক্যালাও)"
       };
     }
 
     return {
       image: '/tailor_cat_neutral.png',
-      dialogue: "Meow... Safety Pocket is running a bit low. Watch your personal spent, shopkeeper! 🐾",
-      title: "Tailor Cat (Cozy)"
+      dialogue: "মিয়াও! ক্যাশবাক্সের অবস্থা সুবিধার না আপু। হাত একটু টান করো, নাইলে ব্যবসা পুরা লাল বাতি হইয়া যাইবো! 🐾",
+      title: "টেইলর বিলাই (সাবধানী)"
     };
   };
 
