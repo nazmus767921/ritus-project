@@ -4,11 +4,11 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-- **Development Phase 03**: Itemized Inventory & Shipment Manager
+- **Development Phase 04**: iOS HIG-Compliant Dashboard
 
 ## Current Goal
 
-- Implement tabular shipment batch forms, Courier Fee Option A allocation hooks, and database transaction blocks.
+- Implement dashboard metrics cards, dynamic calculation aggregates, and stock-decrement sales triggers.
 
 ## Completed
 
@@ -16,7 +16,8 @@ Update this file after every meaningful implementation change.
   - [x] `contexts/specs/01-project-setup-database-spec.md` (React 19 + Vite environment setup, SQLite tables schema, Option A math utility)
   - [x] `contexts/specs/02-financial-logger-spec.md` (Dual-stream financial inputs, expense categorization, strict boundary validations)
   - [x] `contexts/specs/03-inventory-shipment-manager-spec.md` (Multi-brand shipment batch logs, proportional cost allocation integration, database transaction blocks)
-  - [x] `contexts/specs/04-dashboard-spec.md` (iOS HIG metric aggregates grid, dynamic query calculations, inventory sales decrement flows)
+- Phase 04: iOS HIG-Compliant Dashboard:
+  - [x] Implementing dashboard metric widgets, dynamic calculation aggregates, and stock-decrement sales triggers.
 - **Phase 01: Project Setup & Database Configuration**:
   - [x] Setup of React + Vite SPA structure.
   - [x] Integration of `wa-sqlite` and `IndexedDB` storage systems with Drizzle ORM client.
@@ -29,6 +30,26 @@ Update this file after every meaningful implementation change.
   - [x] Implemented strict validation checks for amounts (positive number boundaries) and description (non-blank).
   - [x] Created custom iOS-style centered Alert Modal overlay for displaying error boundary failures.
   - [x] Integrated form-triggering floating action button inside `App.tsx` and bound transactions refresh.
+- **Phase 03: Itemized Inventory & Shipment Manager**:
+  - [x] Designed and implemented `createShipmentTransaction` query inside `src/db/queries/shipments.ts` leveraging SQLite transactions.
+  - [x] Implemented `getInventoryItems` query inside `src/db/queries/inventory.ts` to retrieve stock lists.
+  - [x] Coded the dynamic batch input form `ShipmentForm.tsx` supporting variable item lines, deletion buttons, and live Option A true cost calculation.
+  - [x] Added tab bar navigation inside `App.tsx` (switching between Finances and Inventory tabs) and integrated the new components.
+  - [x] Designed responsive Stock Card List with stock status badges (green/amber/red) and wholesale vs true unit cost outputs.
+  - [x] Confirmed end-to-end production compilation and vitest suite execution.
+- **Phase 04: iOS HIG-Compliant Dashboard**:
+  - [x] Designed and built `DashboardView.tsx` with a 2x2 grid of dynamic financial aggregate cards and an active stock list.
+  - [x] Added `fetchAggregatedMetrics` dynamic query inside `src/db/queries/dashboard.ts` to aggregate transaction categories.
+  - [x] Coded `executeProductSale` database transaction query inside `src/db/queries/inventory.ts` verifying stock availability, decrementing count, and logging income.
+  - [x] Developed `SellSheet.tsx` iOS-style bottom action sheet for entering retail sale price and handling input validation.
+  - [x] Integrated the Dashboard tab bar option and linked modal actions and refreshing loops in `App.tsx`.
+- **Phase 05: Bold Neobrutalist UI Revamp**:
+  - [x] Redefined UI design context (`contexts/ui-context.md`) with Retro Pop Mustard & Purple color scheme, Neobrutalist outlines, and flat offset shadows.
+  - [x] Loaded Google Fonts (`Space Grotesk` & `Lexend`) in `index.html` and bound them to Tailwind v4 display and sans families in `src/index.css`.
+  - [x] Restructured main page layout in `src/App.tsx` as a Retro Software Window, including a header control bar, floating tab bar deck, and styled inputs.
+  - [x] Revamped dashboard card metrics grid and stock lists into tactile Neobrutalist widgets inside `src/components/DashboardView.tsx`.
+  - [x] Transformed sliding bottom sheets into centered Retro System Dialog Modals for transactions (`TransactionForm.tsx`), shipments (`ShipmentForm.tsx`), sales (`SellSheet.tsx`), and error alerts.
+  - [x] Verified full unit test execution and clean production compilation.
 
 ## In Progress
 
@@ -36,10 +57,7 @@ Update this file after every meaningful implementation change.
 
 ## Next Up
 
-- **Phase 03: Itemized Inventory & Shipment Manager**:
-  - Building tabular shipment forms and transaction-wrapped db queries.
-- **Phase 04: iOS HIG-Compliant Dashboard**:
-  - Implementing dashboard metric widgets, dynamic calculation aggregates, and stock-decrement sales triggers.
+- None.
 
 ## Open Questions
 
@@ -60,4 +78,15 @@ Update this file after every meaningful implementation change.
 - Created a separate database queries module `src/db/queries/transactions.ts` for database transaction actions.
 - Built a high-fidelity iOS HIG-compliant `TransactionForm` action sheet, with sub-selectors, state defaults, and micro-animations styled inside `src/index.css` using Tailwind CSS v4 variables.
 - Verified end-to-end project compilation (`npm run build`) and all tests passing (`npm run test`) with zero TypeScript, syntax, or linter warnings.
+- Coded database transaction queries inside `src/db/queries/shipments.ts` and `src/db/queries/inventory.ts` for atomic inventory management.
+- Implemented multi-brand dynamic batch input form `ShipmentForm.tsx` with floating labels, deletion behaviors, and live Option A calculations.
+- Structured bottom tab navigation inside `App.tsx` matching iOS HIG patterns for separating Finances and Inventory views.
+- Created reactive Stock Card List with stock status warning badges.
+- Created `src/db/queries/dashboard.ts` to compute dynamic aggregates for Tailoring Net, Clothing Net, Total Business Profit, and Safety Pocket.
+- Implemented `executeProductSale` database transaction block inside `src/db/queries/inventory.ts` enforcing quantity boundaries.
+- Built `SellSheet.tsx` bottom action sheet for logging retail prices and executing sale decrements.
+- Created `DashboardView.tsx` component with iOS metrics grid and active stock table.
+- Integrated dashboard navigation and modal toggles inside `App.tsx`.
+
+
 
