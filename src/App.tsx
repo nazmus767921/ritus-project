@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { initDb, getDb } from './db/client';
 import { transactions } from './db/schema';
 import { calculateOptionA } from './lib/math/allocator';
-import { Terminal, Database, Calculator, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Terminal, Database, Calculator, RefreshCw, CheckCircle2, AlertCircle, Plus } from 'lucide-react';
+import { getTransactions } from './db/queries/transactions';
+import TransactionForm from './components/TransactionForm';
 
 function App() {
   const [dbStatus, setDbStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [dbError, setDbError] = useState<string | null>(null);
   const [testRecords, setTestRecords] = useState<any[]>([]);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   
   // Math playground state
   const [courierFee, setCourierFee] = useState<string>('150.00');
@@ -69,8 +72,7 @@ function App() {
 
   const refreshTestRecords = async () => {
     try {
-      const db = getDb();
-      const allTx = await db.select().from(transactions);
+      const allTx = await getTransactions();
       setTestRecords(allTx);
     } catch (err) {
       console.error('Error listing test transactions:', err);
@@ -324,6 +326,23 @@ function App() {
           </section>
         </div>
       </div>
+
+      {/* Floating Action Button (iOS styled touch target size) */}
+      <button
+        onClick={() => setIsFormOpen(true)}
+        disabled={dbStatus !== 'ready'}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-sky-600 active:bg-sky-700 hover:bg-sky-500 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 z-40 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+        aria-label="Add Transaction"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      {/* Financial Logger Sheet */}
+      <TransactionForm
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSave={refreshTestRecords}
+      />
     </div>
   );
 }

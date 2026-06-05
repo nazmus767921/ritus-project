@@ -4,11 +4,11 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-- **Development Phase 02**: Dual-Stream Financial Logger
+- **Development Phase 03**: Itemized Inventory & Shipment Manager
 
 ## Current Goal
 
-- Implement the transaction sheets, strict boundary validation inputs, and expense categorization.
+- Implement tabular shipment batch forms, Courier Fee Option A allocation hooks, and database transaction blocks.
 
 ## Completed
 
@@ -22,11 +22,17 @@ Update this file after every meaningful implementation change.
   - [x] Integration of `wa-sqlite` and `IndexedDB` storage systems with Drizzle ORM client.
   - [x] Setup of Option A math helper logic.
   - [x] Confirmed end-to-end builds with Tailwind CSS v4 and full unit test coverage using Vitest.
+- **Phase 02: Dual-Stream Financial Logger**:
+  - [x] Implemented transaction query functions `insertTransaction` and `getTransactions` inside `src/db/queries/transactions.ts`.
+  - [x] Designed `TransactionForm` component representing a native-feeling iOS Action Sheet modal.
+  - [x] Built the Parent Segmented Control for switching between Income and Expense modes, automatically defaulting sub-categories.
+  - [x] Implemented strict validation checks for amounts (positive number boundaries) and description (non-blank).
+  - [x] Created custom iOS-style centered Alert Modal overlay for displaying error boundary failures.
+  - [x] Integrated form-triggering floating action button inside `App.tsx` and bound transactions refresh.
 
 ## In Progress
 
-- **Phase 02: Dual-Stream Financial Logger**:
-  - Implementing transaction sheets and form boundaries.
+- None.
 
 ## Next Up
 
@@ -51,4 +57,7 @@ Update this file after every meaningful implementation change.
 - Configured `@vlcn.io/wa-sqlite` running on `IDBBatchAtomicVFS` (IndexedDB) with `drizzle-orm/sqlite-proxy` database driver.
 - Programmed table schemas (`transactions`, `shipments`, `inventory_items`) inside `src/db/schema.ts` and automated their creation on database initialization.
 - Coded the Option A shipping allocator math library inside `src/lib/math/allocator.ts` and successfully verified its logic through comprehensive unit tests running on `vitest`.
-- Verified end-to-end project compilation (`npm run build`) with Tailwind CSS v4 and zero TypeScript warnings.
+- Created a separate database queries module `src/db/queries/transactions.ts` for database transaction actions.
+- Built a high-fidelity iOS HIG-compliant `TransactionForm` action sheet, with sub-selectors, state defaults, and micro-animations styled inside `src/index.css` using Tailwind CSS v4 variables.
+- Verified end-to-end project compilation (`npm run build`) and all tests passing (`npm run test`) with zero TypeScript, syntax, or linter warnings.
+
