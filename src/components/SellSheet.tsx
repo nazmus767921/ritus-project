@@ -69,95 +69,117 @@ export default function SellSheet({ isOpen, onClose, onSave, item }: SellSheetPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-xs transition-opacity duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4 transition-opacity duration-300">
       {/* Tap outside backdrop to dismiss */}
       <div className="absolute inset-0" onClick={onClose} />
 
-      {/* Slide-up iOS Bottom Sheet */}
-      <div className="relative w-full max-w-lg bg-slate-50 rounded-t-3xl shadow-xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
-        {/* Header Navigation Bar */}
-        <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between min-h-[44px]">
+      {/* Centered Retro Dialog Modal */}
+      <div className="relative w-full max-w-md bg-white rounded-2xl border-[3px] border-black shadow-neobrutal overflow-hidden animate-scale-up flex flex-col max-h-[90vh]">
+        
+        {/* Retro Dialog Title Bar */}
+        <div className="bg-slate-200 border-b-[3px] border-black px-4 py-2.5 flex items-center justify-between select-none">
+          <span className="font-display font-extrabold text-sm uppercase text-black">Execute_Sale.exe</span>
           <button
             onClick={onClose}
-            className="text-sky-600 font-normal active:opacity-60 py-2 px-3 text-base min-h-[44px] flex items-center justify-center transition-opacity"
+            className="w-7 h-7 bg-red-400 border-2 border-black rounded flex items-center justify-center text-black font-extrabold text-xs active:translate-x-[1px] active:translate-y-[1px] active:shadow-none hover:bg-red-500 cursor-pointer shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] transition-all"
             disabled={isSubmitting}
+            aria-label="Close dialog"
           >
-            Cancel
-          </button>
-          <span className="font-semibold text-slate-900 text-base">Execute Sale</span>
-          <button
-            onClick={handleSell}
-            className="text-sky-600 font-semibold active:opacity-60 py-2 px-3 text-base min-h-[44px] flex items-center justify-center transition-opacity"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Selling...' : 'Sell'}
+            X
           </button>
         </div>
 
-        {/* Form Body */}
-        <div className="p-4 space-y-6 overflow-y-auto pb-10">
+        {/* Scrollable Form Body */}
+        <div className="p-5 space-y-5 overflow-y-auto">
           {/* Item details card */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3.5 shadow-xs">
-            <div className="flex justify-between items-start">
+          <div className="bg-slate-50 rounded-xl border-2 border-black p-4 space-y-3 shadow-neobrutal-sm">
+            <div className="flex justify-between items-start gap-2">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product Batch #{item.id}</span>
-                <h3 className="text-lg font-bold text-slate-900 leading-tight mt-0.5">{item.brand}</h3>
+                <span className="text-[9px] font-sans font-bold text-slate-500 uppercase tracking-wider">Product Batch #{item.id}</span>
+                <h3 className="text-base sm:text-lg font-sans font-bold text-black leading-tight mt-0.5">{item.brand}</h3>
               </div>
-              <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+              <span className={`text-[9px] font-sans font-bold px-2 py-0.5 rounded-md border-2 border-black uppercase tracking-wider shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] shrink-0 ${
                 item.quantity <= 3 
-                  ? 'bg-amber-50 text-amber-700 border-amber-200' 
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  ? 'bg-yellow-300 text-black' 
+                  : 'bg-green-400 text-black'
               }`}>
-                {item.quantity} in Stock
+                {item.quantity} In Stock
               </span>
             </div>
 
-            <div className="border-t border-slate-100 pt-3 grid grid-cols-2 gap-4 text-xs font-mono">
+            <div className="border-t-2 border-black pt-3 grid grid-cols-2 gap-4 text-xs font-mono">
               <div>
-                <span className="text-slate-400 block font-sans font-semibold text-[10px] uppercase">Wholesale Cost</span>
-                <span className="text-slate-700 font-bold">৳{(item.wholesaleCost / 100).toFixed(2)}</span>
+                <span className="text-slate-600 block font-sans font-bold text-[9px] uppercase tracking-wider">Wholesale Cost</span>
+                <span className="text-black font-extrabold">৳{(item.wholesaleCost / 100).toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-slate-400 block font-sans font-semibold text-[10px] uppercase">True Unit Cost</span>
-                <span className="text-emerald-700 font-bold">৳{(item.trueCost / 100).toFixed(2)}</span>
+                <span className="text-slate-600 block font-sans font-bold text-[9px] uppercase tracking-wider">True Unit Cost</span>
+                <span className="text-green-600 font-extrabold">৳{(item.trueCost / 100).toFixed(2)}</span>
               </div>
             </div>
           </div>
 
-          {/* Price input card */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-            <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between min-h-[56px] gap-2">
-              <label className="text-sm font-semibold text-slate-900 sm:w-36">Retail Sale Price</label>
-              <div className="relative flex-1">
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 font-semibold font-mono">৳</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={retailPriceStr}
-                  onChange={(e) => setRetailPriceStr(e.target.value)}
-                  className="w-full bg-transparent border-0 pl-5 pr-2 py-1.5 font-mono text-base text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-0 min-h-[44px]"
-                  autoFocus
-                />
-              </div>
+          {/* Price input field */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-sans font-bold text-slate-700 uppercase">Retail Sale Price (Taka)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-2.5 text-black font-bold font-mono">৳</span>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={retailPriceStr}
+                onChange={(e) => setRetailPriceStr(e.target.value)}
+                className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 pl-7 pr-3 font-mono text-sm text-black focus:outline-none focus:bg-white min-h-[44px]"
+                autoFocus
+              />
             </div>
+          </div>
+
+          {/* Form Actions Footer */}
+          <div className="flex gap-3 pt-4 border-t-2 border-black">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 bg-slate-100 hover:bg-slate-200 active:translate-x-[1px] active:translate-y-[1px] border-2 border-black rounded-xl py-2 px-4 text-xs font-sans font-bold uppercase tracking-wider text-black min-h-[44px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all cursor-pointer"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSell}
+              className="flex-1 bg-purple-600 hover:bg-purple-700 active:translate-x-[1px] active:translate-y-[1px] border-2 border-black rounded-xl py-2 px-4 text-xs font-sans font-bold uppercase tracking-wider text-white min-h-[44px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all cursor-pointer"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Selling...' : 'Sell'}
+            </button>
           </div>
         </div>
       </div>
 
-      {/* iOS HIG Centered Alert Dialog */}
+      {/* Retro System Alert Modal */}
       {alertConfig && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-xs animate-fade-in px-6">
-          <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-xl w-full max-w-[270px] overflow-hidden text-center border border-slate-200 animate-scale-up">
-            <div className="p-4 space-y-1">
-              <h4 className="font-bold text-slate-900 text-lg leading-tight">{alertConfig.title}</h4>
-              <p className="text-xs text-slate-600 font-normal leading-relaxed">{alertConfig.message}</p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-xs px-6 animate-fade-in">
+          <div className="bg-white rounded-2xl border-[3px] border-black shadow-neobrutal w-full max-w-[290px] overflow-hidden animate-scale-up">
+            <div className="bg-red-400 text-black border-b-[3px] border-black px-4 py-2 flex items-center justify-between select-none">
+              <span className="font-display font-extrabold text-xs uppercase">System_Alert.exe</span>
+              <button 
+                onClick={() => setAlertConfig(null)}
+                className="w-6 h-6 bg-white border-2 border-black rounded flex items-center justify-center text-black font-extrabold text-[9px] cursor-pointer"
+              >
+                X
+              </button>
             </div>
-            <div className="border-t border-slate-200 flex">
+            <div className="p-4 space-y-2">
+              <h4 className="font-sans font-bold text-black text-sm uppercase tracking-wide">{alertConfig.title}</h4>
+              <p className="text-xs text-slate-800 font-medium leading-relaxed">{alertConfig.message}</p>
+            </div>
+            <div className="p-3 border-t-2 border-black flex justify-end bg-slate-50">
               <button
                 type="button"
                 onClick={() => setAlertConfig(null)}
-                className="w-full py-3 text-sky-600 font-bold active:bg-slate-100 transition-colors text-base min-h-[44px] flex items-center justify-center"
+                className="bg-white border-2 border-black rounded-lg py-1 px-4 text-xs font-sans font-bold uppercase tracking-wider text-black min-h-[36px] shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer"
               >
                 OK
               </button>

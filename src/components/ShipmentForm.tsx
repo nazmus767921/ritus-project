@@ -162,77 +162,73 @@ export default function ShipmentForm({ isOpen, onClose, onSave }: ShipmentFormPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-xs transition-opacity duration-300">
-      {/* Tap outside to dismiss bottom sheet */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4 transition-opacity duration-300">
+      {/* Tap outside to dismiss */}
       <div className="absolute inset-0" onClick={onClose} />
 
-      {/* Slide-up iOS Bottom Sheet */}
-      <div className="relative w-full max-w-2xl bg-slate-50 rounded-t-3xl shadow-xl overflow-hidden animate-slide-up flex flex-col max-h-[92vh]">
+      {/* Centered Retro Dialog Modal */}
+      <div className="relative w-full max-w-2xl bg-white rounded-2xl border-[3px] border-black shadow-neobrutal overflow-hidden animate-scale-up flex flex-col max-h-[90vh]">
         
-        {/* Fixed Header / Navigation Bar */}
-        <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between min-h-[44px]">
+        {/* Retro Dialog Title Bar */}
+        <div className="bg-slate-200 border-b-[3px] border-black px-4 py-2.5 flex items-center justify-between select-none">
+          <span className="font-display font-extrabold text-sm uppercase text-black">Import_Shipment.exe</span>
           <button
             onClick={onClose}
-            className="text-sky-600 font-normal active:opacity-60 py-2 px-3 text-base min-h-[44px] flex items-center justify-center transition-opacity"
+            className="w-7 h-7 bg-red-400 border-2 border-black rounded flex items-center justify-center text-black font-extrabold text-xs active:translate-x-[1px] active:translate-y-[1px] active:shadow-none hover:bg-red-500 cursor-pointer shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] transition-all"
             disabled={isSubmitting}
+            aria-label="Close dialog"
           >
-            Cancel
-          </button>
-          <span className="font-semibold text-slate-900 text-base">Import Shipment</span>
-          <button
-            onClick={handleSave}
-            className="text-sky-600 font-semibold active:opacity-60 py-2 px-3 text-base min-h-[44px] flex items-center justify-center transition-opacity"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Saving...' : 'Save'}
+            X
           </button>
         </div>
 
         {/* Scrollable Form Body */}
-        <div className="p-4 space-y-6 overflow-y-auto pb-10">
+        <div className="p-5 space-y-6 overflow-y-auto">
           
           {/* Header Shipment Metadata Section */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100 shadow-xs">
-            {/* Courier Fee Row */}
-            <div className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between min-h-[56px] gap-2">
-              <label className="text-sm font-semibold text-slate-900 sm:w-36">Courier Fee</label>
-              <div className="relative flex-1">
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 font-semibold font-mono">৳</span>
+          <div className="bg-slate-50 p-4 rounded-xl border-2 border-black space-y-4 shadow-neobrutal-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Courier Fee Field */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-sans font-bold text-slate-700 uppercase">Courier Fee (Taka)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-black font-bold font-mono">৳</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={courierFeeStr}
+                    onChange={(e) => setCourierFeeStr(e.target.value)}
+                    className="w-full bg-white border-2 border-black rounded-xl py-2 pl-7 pr-3 font-mono text-sm text-black focus:outline-none min-h-[44px]"
+                  />
+                </div>
+              </div>
+
+              {/* Delivery Date Field */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-sans font-bold text-slate-700 uppercase">Delivery Date</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={courierFeeStr}
-                  onChange={(e) => setCourierFeeStr(e.target.value)}
-                  className="w-full bg-transparent border-0 pl-5 pr-2 py-1.5 font-mono text-base text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-0 min-h-[44px]"
+                  type="date"
+                  value={deliveryDateStr}
+                  onChange={(e) => setDeliveryDateStr(e.target.value)}
+                  className="w-full bg-white border-2 border-black rounded-xl py-2 px-3 font-mono text-sm text-black focus:outline-none min-h-[44px]"
                 />
               </div>
-            </div>
-
-            {/* Delivery Date Row */}
-            <div className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between min-h-[56px] gap-2">
-              <label className="text-sm font-semibold text-slate-900 sm:w-36">Delivery Date</label>
-              <input
-                type="date"
-                value={deliveryDateStr}
-                onChange={(e) => setDeliveryDateStr(e.target.value)}
-                className="flex-1 bg-transparent border-0 px-0 py-1.5 text-base text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-0 min-h-[44px]"
-              />
             </div>
           </div>
 
           {/* Dynamic Array Items Section */}
           <div className="space-y-3">
-            <div className="flex justify-between items-center px-1">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider">
                 Shipment Items
               </span>
               <button
                 type="button"
                 onClick={handleAddLine}
-                className="text-sky-600 font-semibold text-sm active:opacity-60 flex items-center gap-1 py-1.5 px-3 min-h-[44px]"
+                className="bg-purple-600 text-white border-2 border-black rounded-xl py-1.5 px-3 text-xs font-sans font-bold uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1 min-h-[38px] cursor-pointer transition-all"
               >
-                <Plus className="w-4 h-4" /> Add Row
+                <Plus className="w-4 h-4 stroke-[3px]" /> Add Row
               </button>
             </div>
 
@@ -241,18 +237,18 @@ export default function ShipmentForm({ isOpen, onClose, onSave }: ShipmentFormPr
               {lines.map((line, index) => {
                 const previewTrueCost = liveTrueCosts?.[index];
                 return (
-                  <div key={index} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-4 relative">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <span className="text-xs font-bold text-slate-500">Item Row #{index + 1}</span>
+                  <div key={index} className="bg-slate-50 rounded-xl border-2 border-black p-4 shadow-neobrutal-sm space-y-4 relative animate-fade-in">
+                    <div className="flex items-center justify-between border-b-2 border-black pb-2">
+                      <span className="text-xs font-sans font-bold text-black uppercase tracking-wider">Item Row #{index + 1}</span>
                       {lines.length > 1 && (
                         <button
                           type="button"
                           onClick={() => handleRemoveLine(index)}
-                          className="text-red-600 hover:text-red-800 active:opacity-60 p-2 -mr-2 min-w-[44px] min-h-[44px] flex items-center justify-center transition-opacity"
+                          className="text-red-600 hover:text-red-800 p-2 -mr-2 min-w-[36px] min-h-[36px] flex items-center justify-center border-2 border-transparent hover:border-black rounded-lg active:bg-slate-200 transition-all cursor-pointer"
                           title="Remove item row"
                           aria-label={`Remove row ${index + 1}`}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4.5 h-4.5" />
                         </button>
                       )}
                     </div>
@@ -260,50 +256,50 @@ export default function ShipmentForm({ isOpen, onClose, onSave }: ShipmentFormPr
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {/* Brand Name Input */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">Brand</label>
+                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Brand</label>
                         <input
                           type="text"
                           placeholder="e.g. Zara"
                           value={line.brand}
                           onChange={(e) => handleLineChange(index, 'brand', e.target.value)}
-                          className="bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-sky-600 focus:ring-1 focus:ring-sky-600 min-h-[44px]"
+                          className="bg-white border-2 border-black rounded-lg py-1.5 px-3 text-sm text-black focus:outline-none min-h-[40px]"
                         />
                       </div>
 
                       {/* Quantity Input */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">Quantity</label>
+                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Quantity</label>
                         <input
                           type="number"
                           placeholder="0"
                           value={line.quantityStr}
                           onChange={(e) => handleLineChange(index, 'quantityStr', e.target.value)}
-                          className="bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 font-mono text-sm focus:outline-none focus:border-sky-600 focus:ring-1 focus:ring-sky-600 min-h-[44px]"
+                          className="bg-white border-2 border-black rounded-lg py-1.5 px-3 font-mono text-sm text-black focus:outline-none min-h-[40px]"
                         />
                       </div>
 
                       {/* Wholesale Cost Input */}
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">Wholesale (৳)</label>
+                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Wholesale (৳)</label>
                         <input
                           type="number"
                           step="0.01"
                           placeholder="0.00"
                           value={line.wholesaleCostStr}
                           onChange={(e) => handleLineChange(index, 'wholesaleCostStr', e.target.value)}
-                          className="bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 font-mono text-sm focus:outline-none focus:border-sky-600 focus:ring-1 focus:ring-sky-600 min-h-[44px]"
+                          className="bg-white border-2 border-black rounded-lg py-1.5 px-3 font-mono text-sm text-black focus:outline-none min-h-[40px]"
                         />
                       </div>
                     </div>
 
                     {/* Live Preview Row Cost Result */}
-                    <div className="bg-slate-50 rounded-xl p-3 flex justify-between items-center text-xs">
-                      <span className="text-slate-500 font-semibold">Predicted True Cost (Per Unit)</span>
-                      <span className="font-mono font-bold text-slate-900">
+                    <div className="bg-white rounded-lg border-2 border-black p-2.5 flex justify-between items-center text-xs">
+                      <span className="text-slate-700 font-sans font-bold uppercase tracking-wider text-[10px]">Per-Unit True Cost</span>
+                      <span className="font-mono font-bold text-black">
                         {previewTrueCost !== undefined && previewTrueCost !== null ? (
                           <>৳{(previewTrueCost / 100).toFixed(2)}</>
                         ) : (
-                          <span className="text-slate-400 font-normal">Waiting for valid inputs...</span>
+                          <span className="text-slate-500 font-normal">Waiting for inputs...</span>
                         )}
                       </span>
                     </div>
@@ -313,22 +309,51 @@ export default function ShipmentForm({ isOpen, onClose, onSave }: ShipmentFormPr
             </div>
           </div>
 
+          {/* Form Actions Footer */}
+          <div className="flex gap-3 pt-4 border-t-2 border-black">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 bg-slate-100 hover:bg-slate-200 active:translate-x-[1px] active:translate-y-[1px] border-2 border-black rounded-xl py-2 px-4 text-xs font-sans font-bold uppercase tracking-wider text-black min-h-[44px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all cursor-pointer"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="flex-1 bg-purple-600 hover:bg-purple-700 active:translate-x-[1px] active:translate-y-[1px] border-2 border-black rounded-xl py-2 px-4 text-xs font-sans font-bold uppercase tracking-wider text-white min-h-[44px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all cursor-pointer"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+
         </div>
       </div>
 
-      {/* iOS HIG-Compliant Centered Alert Modal */}
+      {/* Retro System Alert Modal */}
       {alertConfig && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-xs animate-fade-in px-6">
-          <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-xl w-full max-w-[270px] overflow-hidden text-center border border-slate-200 animate-scale-up">
-            <div className="p-4 space-y-1">
-              <h4 className="font-bold text-slate-900 text-lg leading-tight">{alertConfig.title}</h4>
-              <p className="text-xs text-slate-600 font-normal leading-relaxed">{alertConfig.message}</p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-xs px-6 animate-fade-in">
+          <div className="bg-white rounded-2xl border-[3px] border-black shadow-neobrutal w-full max-w-[290px] overflow-hidden animate-scale-up">
+            <div className="bg-red-400 text-black border-b-[3px] border-black px-4 py-2 flex items-center justify-between select-none">
+              <span className="font-display font-extrabold text-xs uppercase">System_Alert.exe</span>
+              <button 
+                onClick={() => setAlertConfig(null)}
+                className="w-6 h-6 bg-white border-2 border-black rounded flex items-center justify-center text-black font-extrabold text-[9px] cursor-pointer"
+              >
+                X
+              </button>
             </div>
-            <div className="border-t border-slate-200 flex">
+            <div className="p-4 space-y-2">
+              <h4 className="font-sans font-bold text-black text-sm uppercase tracking-wide">{alertConfig.title}</h4>
+              <p className="text-xs text-slate-800 font-medium leading-relaxed">{alertConfig.message}</p>
+            </div>
+            <div className="p-3 border-t-2 border-black flex justify-end bg-slate-50">
               <button
                 type="button"
                 onClick={() => setAlertConfig(null)}
-                className="w-full py-3 text-sky-600 font-bold active:bg-slate-100 transition-colors text-base min-h-[44px] flex items-center justify-center"
+                className="bg-white border-2 border-black rounded-lg py-1 px-4 text-xs font-sans font-bold uppercase tracking-wider text-black min-h-[36px] shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer"
               >
                 OK
               </button>

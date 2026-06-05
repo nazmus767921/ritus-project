@@ -1,41 +1,45 @@
-# UI Context
+# UI Context - Bold Neobrutalism
 
 ## Theme
-The interface replicates a native iOS application layout, adhering strictly to the iOS Human Interface Guidelines (HIG). The visual architecture utilizes a clean, single-viewport structure optimized for efficient mobile input. It features clear typography, strict safety padding, and high-contrast system states.
+The interface implements a custom **Bold Neobrutalist** theme styled like a retro desktop software window. The design features a vibrant color palette, thick high-contrast black borders, hard offset shadows, custom system window controls, and bouncy interactive micro-animations that respond with mechanical feedback on user click actions.
 
 ## Colors
-All UI components must use the specific design tokens listed below. Do not use hardcoded hexadecimal strings in layout code.
+All UI components must use the design tokens listed below to maintain design system consistency.
 
-| Role | Tailwind Token Class | Native iOS Equivalency | Operational Scope |
-| ------ | ------ | ------ | ------ |
-| Page background | `bg-slate-50` | `systemBackgroundColor` | System-wide background for the main canvas view. |
-| Surface background | `bg-white` | `secondarySystemBackgroundColor` | Container cards, scroll lists, and action sheets. |
-| Primary text | `text-slate-900` | `labelColor` | High-contrast title typography and primary numbers. |
-| Muted text | `text-slate-500` | `secondaryLabelColor` | Transaction timestamps, informational captions, and item tags. |
-| Primary accent | `text-sky-600` / `bg-sky-600` | `systemBlueColor` | Interactive items, active menu links, and primary save targets. |
-| Border outline | `border-slate-200` | `separatorColor` | Clean divider lines separating list records and form cells. |
-| Expense / Outflow | `text-red-600` / `bg-red-600` | `systemRedColor` | Displays personal expenses and action delete buttons. |
-| Revenue / Gain | `text-emerald-600` / `bg-emerald-600` | `systemGreenColor` | Highlights income streams, positive margins, and the Safety Pocket. |
+| Role | Tailwind Token Class | Description |
+| ------ | ------ | ------ |
+| Page background | `bg-yellow-100` (`#FEF08A`) | Vibrant Retro Mustard Yellow background. |
+| Surface background | `bg-white` | Base color for container cards, forms, list headers, and modal overlays. |
+| Secondary surface | `bg-slate-100` | Secondary background for neutral badges, control groups, and inputs. |
+| Primary text | `text-black` / `text-slate-900` | Solid black typography for titles, numbers, and critical labels. |
+| Muted text | `text-slate-700` | High-contrast secondary text for timestamps and descriptions. |
+| Accent (Interactive) | `bg-purple-600` / `text-purple-600` | Electric Purple for tab highlights, action buttons, and active options. |
+| Expense / Outflow | `bg-red-400` / `text-red-600` | Hot Coral Red for personal expenses, deletions, and negative metrics. |
+| Revenue / Gain | `bg-green-400` / `text-green-600` | Neon Green for income, stock badges, margins, and the Safety Pocket. |
+| Borders | `border-3 border-black` / `border-2 border-black` | Solid black outlines applied around all containers, inputs, and buttons. |
+| Box Shadows | `shadow-neobrutal` / `shadow-neobrutal-sm` | Flat, hard black shadow offsets: `shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]`. |
 
 ## Typography
+Headings and numeric metrics utilize `Space Grotesk` for retro-tech layout aesthetics. UI labels and body texts utilize `Lexend` to maintain clear readability.
+
 | System Scale | Tailwind Font / Size Classes | Applied Target Area |
 | ------ | ------ | ------ |
-| Large Title | `font-sans text-3xl font-bold tracking-tight` | Primary dashboard overview header. |
-| Body Text | `font-sans text-base font-normal` | List labels, product brand text, and descriptions. |
-| Numerical Metric | `font-mono text-lg font-semibold` | Taka currency printouts, counts, and calculated margins. |
+| Large Title | `font-display text-2xl sm:text-3xl font-bold tracking-tight text-black` | Main application headers and modal titles. |
+| Card Metric | `font-display text-xl sm:text-2xl font-extrabold tracking-tight` | Aggregated profit, net, and safety values. |
+| Label & Caption | `font-sans text-xs sm:text-sm font-semibold uppercase tracking-wider` | Section categories, inputs, and description tags. |
+| Body Text | `font-sans text-sm sm:text-base font-medium text-slate-800` | Inventory brand names, list descriptions, and item rows. |
 
-## Corner Radius Scale (iOS Compliant)
-| Context Structure | Tailwind Class | Functional Assignment |
-| ------ | ------ | ------ |
-| Control Controls | `rounded-lg` | Input text fields, individual batch tags, and inline action buttons. |
-| Interface Cards | `rounded-2xl` | Dashboard metric summaries and scrollable list cards. |
-| Modals & Alerts | `rounded-3xl` | Bottom sheet forms and quick transaction prompts. |
+## Corner Radius & Borders
+Neobrutalism balances sharp angles with playful rounded shapes.
+- **Controls & Buttons**: `rounded-xl` with `border-2 border-black` and `shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]`.
+- **Main Window & Cards**: `rounded-2xl` with `border-3 border-black` and `shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]`.
+- **Active Button Action state**: On active press, buttons shift downward (`active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]`) to simulate a mechanical click.
 
 ## Layout Patterns
-- **Standard iOS Navigation Sheet**: A fixed top navigation bar displaying the view title, containing clear left/right action text anchors.
-- **Grouped Interface Rows**: Display transaction records inside distinct vertical lists featuring rounded corners, white card backings, and clear separation borders.
-- **Thumb-Accessible Primary Trigger**: A floating, fixed-bottom action element configured to activate input screens without stretching the user's hand.
+- **Retro Software Window Frame**: The app is rendered inside a centered card framed with simulated min/max/close controls (red/yellow/green circle dots) and a thick title bar.
+- **Stacked Card Widgets**: Metric readouts are displayed as high-visibility colored cards with hard black shadow borders.
+- **Retro System Dialog Modals**: Modals are centered on the viewport with thick black borders, a grey window title bar, and a bold `[X]` exit button.
 
 ## Icons
-- Implement system icons using vector graphics from the Lucide React library.
-- Size Constraint: Force `w-5 h-5` configurations for contextual list icons and standard interactive triggers.
+- Lucide React library icons are used throughout the UI.
+- All icons are rendered with standard sizing constraints: `w-5 h-5` for general triggers, `w-4 h-4` for status indicators inside cards.

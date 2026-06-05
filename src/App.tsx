@@ -158,28 +158,34 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 md:p-8 flex flex-col items-center pb-24">
-      {/* iOS HIG compliant view container */}
-      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-        {/* Navigation Bar Header */}
-        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
-            {activeTab === 'dashboard' ? 'ClothEx Dashboard' : activeTab === 'finances' ? 'ClothEx Finances' : 'ClothEx Stock Inventory'}
+    <div className="min-h-screen bg-yellow-100 text-black font-sans p-4 md:p-8 flex flex-col items-center pb-28">
+      {/* Retro Game Window Wrapper */}
+      <div className="w-full max-w-2xl bg-white rounded-2xl border-[3px] border-black shadow-neobrutal overflow-hidden">
+        {/* Retro Title Bar Header */}
+        <div className="bg-black text-white px-4 py-3 flex items-center justify-between border-b-[3px] border-black select-none">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Window control dots */}
+            <span className="w-3 h-3 rounded-full bg-red-500 border border-black inline-block"></span>
+            <span className="w-3 h-3 rounded-full bg-yellow-500 border border-black inline-block"></span>
+            <span className="w-3 h-3 rounded-full bg-green-500 border border-black inline-block"></span>
+          </div>
+          <h1 className="text-[11px] sm:text-xs font-display font-bold uppercase tracking-wider text-center flex-1 mx-2 truncate">
+            {activeTab === 'dashboard' ? 'ClothEx_Dashboard.exe' : activeTab === 'finances' ? 'ClothEx_Finances.exe' : 'ClothEx_Stock_Inventory.exe'}
           </h1>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {dbStatus === 'loading' && (
-              <span className="flex items-center gap-1 text-sky-600 text-xs font-semibold bg-sky-50 px-2.5 py-1 rounded-full">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> SQLite Init
+              <span className="flex items-center gap-1 text-black text-[10px] font-bold bg-yellow-300 px-2 py-0.5 rounded border border-black">
+                <RefreshCw className="w-3 h-3 animate-spin" /> SQLite Init
               </span>
             )}
             {dbStatus === 'ready' && (
-              <span className="flex items-center gap-1 text-emerald-600 text-xs font-semibold bg-emerald-50 px-2.5 py-1 rounded-full">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Engine Active
+              <span className="flex items-center gap-1 text-black text-[10px] font-bold bg-green-400 px-2 py-0.5 rounded border border-black">
+                <CheckCircle2 className="w-3 h-3" /> Active
               </span>
             )}
             {dbStatus === 'error' && (
-              <span className="flex items-center gap-1 text-red-600 text-xs font-semibold bg-red-50 px-2.5 py-1 rounded-full">
-                <AlertCircle className="w-3.5 h-3.5" /> Engine Fault
+              <span className="flex items-center gap-1 text-white text-[10px] font-bold bg-red-500 px-2 py-0.5 rounded border border-black">
+                <AlertCircle className="w-3 h-3" /> Fault
               </span>
             )}
           </div>
@@ -187,16 +193,16 @@ function App() {
 
         {/* Database Status Alert Banner */}
         {dbStatus === 'error' && (
-          <div className="bg-red-50 border-b border-red-100 p-4 flex gap-3 text-red-700 text-sm">
-            <AlertCircle className="w-5 h-5 shrink-0" />
+          <div className="bg-red-400 border-b-[3px] border-black p-4 flex gap-3 text-black text-sm">
+            <AlertCircle className="w-5 h-5 shrink-0 text-black stroke-[2.5px]" />
             <div>
-              <p className="font-semibold text-red-950">Database Connection Failed</p>
-              <p className="mt-1 font-mono text-xs">{dbError}</p>
+              <p className="font-bold uppercase tracking-wide">Database Connection Failed</p>
+              <p className="mt-1.5 font-mono text-xs bg-white p-2 border-2 border-black rounded-lg">{dbError}</p>
             </div>
           </div>
         )}
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {activeTab === 'dashboard' ? (
             <DashboardView
               metrics={metrics}
@@ -210,40 +216,40 @@ function App() {
             <div className="space-y-8 animate-fade-in">
               {/* Section: SQLite & IndexedDB VFS Info */}
               <section className="space-y-3">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                  <Database className="w-4 h-4" /> Relational Storage Layer
+                <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <Database className="w-4 h-4 text-black" /> Relational Storage Layer
                 </h2>
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-sm space-y-2.5">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">SQLite Engine</span>
-                    <span className="font-mono text-slate-700 font-semibold bg-white px-2 py-0.5 rounded border border-slate-200">@vlcn.io/wa-sqlite (WASM)</span>
+                <div className="bg-white rounded-xl p-4 border-2 border-black shadow-neobrutal-sm text-xs sm:text-sm space-y-2.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-800 font-bold">SQLite Engine</span>
+                    <span className="font-mono text-black font-bold bg-yellow-200 px-2 py-0.5 rounded-lg border-2 border-black">@vlcn.io/wa-sqlite (WASM)</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Persistence Layer</span>
-                    <span className="font-mono text-slate-700 font-semibold bg-white px-2 py-0.5 rounded border border-slate-200">IndexedDB VFS</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-800 font-bold">Persistence Layer</span>
+                    <span className="font-mono text-black font-bold bg-yellow-200 px-2 py-0.5 rounded-lg border-2 border-black">IndexedDB VFS</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">ORM Framework</span>
-                    <span className="font-mono text-slate-700 font-semibold bg-white px-2 py-0.5 rounded border border-slate-200">Drizzle sqlite-proxy</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-800 font-bold">ORM Framework</span>
+                    <span className="font-mono text-black font-bold bg-yellow-200 px-2 py-0.5 rounded-lg border-2 border-black">Drizzle sqlite-proxy</span>
                   </div>
                 </div>
               </section>
 
               {/* Section: Option A Math Calculator */}
               <section className="space-y-3">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                  <Calculator className="w-4 h-4" /> Option A Allocator Playground
+                <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <Calculator className="w-4 h-4 text-black" /> Option A Allocator Playground
                 </h2>
-                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-4">
+                <div className="bg-white rounded-xl p-5 border-2 border-black shadow-neobrutal space-y-4">
                   {/* Courier fee input */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-slate-500">Courier Delivery Fee (Taka)</label>
+                    <label className="text-xs font-sans font-bold text-slate-700 uppercase">Courier Delivery Fee (Taka)</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-slate-400 font-semibold">৳</span>
+                      <span className="absolute left-3 top-2.5 text-black font-bold font-mono">৳</span>
                       <input
                         type="number"
                         step="0.01"
-                        className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-7 pr-3 font-mono text-sm focus:outline-none focus:border-sky-600 focus:ring-1 focus:ring-sky-600"
+                        className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 pl-7 pr-3 font-mono text-sm text-black focus:outline-none focus:bg-white focus:ring-0 min-h-[44px]"
                         value={courierFee}
                         onChange={(e) => setCourierFee(e.target.value)}
                       />
@@ -253,23 +259,23 @@ function App() {
                   {/* Items configuration */}
                   <div className="grid grid-cols-2 gap-4">
                     {/* Item 1 */}
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2.5">
-                      <p className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-1">Brand Batch A</p>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">Quantity</label>
+                    <div className="bg-slate-50 p-3 rounded-xl border-2 border-black space-y-2.5">
+                      <p className="text-[10px] font-display font-bold text-black border-b-2 border-black pb-1 uppercase tracking-wide">Brand Batch A</p>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Quantity</label>
                         <input
                           type="number"
-                          className="w-full bg-slate-50 border border-slate-100 rounded py-1 px-2 font-mono text-xs focus:outline-none focus:border-sky-600"
+                          className="w-full bg-white border-2 border-black rounded-lg py-1 px-2 font-mono text-xs text-black focus:outline-none min-h-[36px]"
                           value={item1Qty}
                           onChange={(e) => setItem1Qty(e.target.value)}
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">Wholesale Cost (৳)</label>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Wholesale (৳)</label>
                         <input
                           type="number"
                           step="0.01"
-                          className="w-full bg-slate-50 border border-slate-100 rounded py-1 px-2 font-mono text-xs focus:outline-none focus:border-sky-600"
+                          className="w-full bg-white border-2 border-black rounded-lg py-1 px-2 font-mono text-xs text-black focus:outline-none min-h-[36px]"
                           value={item1Cost}
                           onChange={(e) => setItem1Cost(e.target.value)}
                         />
@@ -277,23 +283,23 @@ function App() {
                     </div>
 
                     {/* Item 2 */}
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2.5">
-                      <p className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-1">Brand Batch B</p>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">Quantity</label>
+                    <div className="bg-slate-50 p-3 rounded-xl border-2 border-black space-y-2.5">
+                      <p className="text-[10px] font-display font-bold text-black border-b-2 border-black pb-1 uppercase tracking-wide">Brand Batch B</p>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Quantity</label>
                         <input
                           type="number"
-                          className="w-full bg-slate-50 border border-slate-100 rounded py-1 px-2 font-mono text-xs focus:outline-none focus:border-sky-600"
+                          className="w-full bg-white border-2 border-black rounded-lg py-1 px-2 font-mono text-xs text-black focus:outline-none min-h-[36px]"
                           value={item2Qty}
                           onChange={(e) => setItem2Qty(e.target.value)}
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">Wholesale Cost (৳)</label>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Wholesale (৳)</label>
                         <input
                           type="number"
                           step="0.01"
-                          className="w-full bg-slate-50 border border-slate-100 rounded py-1 px-2 font-mono text-xs focus:outline-none focus:border-sky-600"
+                          className="w-full bg-white border-2 border-black rounded-lg py-1 px-2 font-mono text-xs text-black focus:outline-none min-h-[36px]"
                           value={item2Cost}
                           onChange={(e) => setItem2Cost(e.target.value)}
                         />
@@ -303,20 +309,20 @@ function App() {
 
                   {/* Real-time Math Output Card */}
                   {mathError ? (
-                    <div className="bg-red-50 border border-red-100 text-red-600 text-xs rounded-xl p-3 flex gap-2 font-medium">
-                      <AlertCircle className="w-4 h-4 shrink-0" /> {mathError}
+                    <div className="bg-red-300 border-2 border-black text-black text-xs font-semibold rounded-xl p-3 flex gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-black" /> {mathError}
                     </div>
                   ) : mathResult.length > 0 ? (
-                    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3.5 space-y-2.5">
-                      <p className="text-xs font-semibold text-emerald-950">Option A Proportional Allocation Results</p>
+                    <div className="bg-green-300 border-2 border-black rounded-xl p-3.5 space-y-2.5 shadow-neobrutal-sm">
+                      <p className="text-xs font-display font-bold text-black uppercase tracking-wide">Option A Proportional Allocation Results</p>
                       <div className="grid grid-cols-2 gap-4 text-xs font-mono">
                         <div>
-                          <span className="text-slate-500 font-bold">Batch A True Cost:</span>
-                          <p className="text-sm font-semibold text-emerald-700">৳{(mathResult[0] / 100).toFixed(2)} <span className="text-[10px] text-slate-400">({mathResult[0]} Poisha)</span></p>
+                          <span className="text-slate-800 font-bold block">Batch A True Cost:</span>
+                          <p className="text-sm font-display font-extrabold text-black mt-0.5">৳{(mathResult[0] / 100).toFixed(2)} <span className="text-[10px] text-slate-700 font-normal">({mathResult[0]} Poisha)</span></p>
                         </div>
                         <div>
-                          <span className="text-slate-500 font-bold">Batch B True Cost:</span>
-                          <p className="text-sm font-semibold text-emerald-700">৳{(mathResult[1] / 100).toFixed(2)} <span className="text-[10px] text-slate-400">({mathResult[1]} Poisha)</span></p>
+                          <span className="text-slate-800 font-bold block">Batch B True Cost:</span>
+                          <p className="text-sm font-display font-extrabold text-black mt-0.5">৳{(mathResult[1] / 100).toFixed(2)} <span className="text-[10px] text-slate-700 font-normal">({mathResult[1]} Poisha)</span></p>
                         </div>
                       </div>
                     </div>
@@ -326,22 +332,22 @@ function App() {
 
               {/* Section: Relational Drizzle Sandbox */}
               <section className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                    <Terminal className="w-4 h-4" /> Drizzle ORM Relational Sandbox
+                <div className="flex justify-between items-center flex-wrap gap-2">
+                  <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-black" /> Drizzle ORM Relational Sandbox
                   </h2>
                   <div className="flex gap-2">
                     <button
                       onClick={clearTestRecords}
                       disabled={dbStatus !== 'ready'}
-                      className="text-xs bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-semibold py-1.5 px-3 rounded-lg border border-slate-200 transition-colors disabled:opacity-50 min-h-[44px]"
+                      className="text-xs bg-red-300 hover:bg-red-400 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] text-black font-sans font-bold py-1.5 px-3 rounded-xl border-2 border-black shadow-neobrutal-sm transition-all disabled:opacity-50 min-h-[44px]"
                     >
                       Clear DB
                     </button>
                     <button
                       onClick={runInsertTest}
                       disabled={dbStatus !== 'ready'}
-                      className="text-xs bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm transition-colors disabled:opacity-50 min-h-[44px]"
+                      className="text-xs bg-purple-500 text-white hover:bg-purple-600 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] font-sans font-bold py-1.5 px-3 rounded-xl border-2 border-black shadow-neobrutal-sm transition-all disabled:opacity-50 min-h-[44px]"
                     >
                       Add Test Record
                     </button>
@@ -349,24 +355,24 @@ function App() {
                 </div>
 
                 {/* Records List */}
-                <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                <div className="bg-white rounded-xl border-2 border-black overflow-hidden shadow-neobrutal-sm">
                   {testRecords.length === 0 ? (
-                    <div className="p-8 text-center text-slate-400 text-sm">
-                      <Database className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <div className="p-8 text-center text-slate-500 text-sm">
+                      <Database className="w-8 h-8 mx-auto mb-2 opacity-50 text-black" />
                       No records stored yet. Click "Add Test Record" to run Drizzle insert commands.
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                    <div className="divide-y-2 divide-black max-h-60 overflow-y-auto">
                       {testRecords.map((record) => (
-                        <div key={record.id} className="p-3.5 flex items-center justify-between text-xs hover:bg-white transition-colors">
+                        <div key={record.id} className="p-3.5 flex items-center justify-between text-xs hover:bg-yellow-50 transition-colors">
                           <div className="space-y-1">
-                            <p className="font-semibold text-slate-900">{record.description}</p>
-                            <p className="text-slate-400 font-mono">{new Date(record.createdAt).toLocaleString()}</p>
+                            <p className="font-sans font-bold text-black">{record.description}</p>
+                            <p className="text-slate-600 font-mono">{new Date(record.createdAt).toLocaleString()}</p>
                           </div>
-                          <div className="text-right space-y-1">
-                            <p className="font-mono font-bold text-slate-800">৳{(record.amount / 100).toFixed(2)}</p>
-                            <span className="inline-block bg-slate-200/60 text-slate-600 font-semibold px-2 py-0.5 rounded">
-                              {record.category}
+                          <div className="text-right space-y-1 shrink-0">
+                            <p className="font-display font-bold text-black">৳{(record.amount / 100).toFixed(2)}</p>
+                            <span className="inline-block bg-yellow-200 text-black font-sans font-bold text-[10px] px-2 py-0.5 rounded-md border-2 border-black uppercase tracking-wide shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">
+                              {record.category.replace('_', ' ')}
                             </span>
                           </div>
                         </div>
@@ -380,57 +386,57 @@ function App() {
             <div className="space-y-6 animate-fade-in">
               {/* Section: Stock Grid / Cards */}
               <div className="flex justify-between items-center">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                  <Package className="w-4 h-4" /> Active Stock Items
+                <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <Package className="w-4 h-4 text-black" /> Active Stock Items
                 </h2>
-                <span className="text-xs font-semibold text-slate-400">
+                <span className="text-xs font-sans font-bold text-slate-600">
                   Total Batches: {inventoryRecords.length}
                 </span>
               </div>
 
               {inventoryRecords.length === 0 ? (
-                <div className="bg-slate-50 rounded-2xl border border-slate-100 p-12 text-center text-slate-400 text-sm">
-                  <Package className="w-10 h-10 mx-auto mb-3 opacity-40 text-slate-500" />
-                  <p className="font-semibold text-slate-600">No Inventory Items Logged</p>
-                  <p className="mt-1 text-xs text-slate-400">Tap the "+" button below to import your first multi-brand shipment batch.</p>
+                <div className="bg-white rounded-xl border-2 border-black p-12 text-center text-slate-500 text-sm shadow-neobrutal-sm">
+                  <Package className="w-10 h-10 mx-auto mb-3 text-black opacity-60" />
+                  <p className="font-sans font-bold text-black text-base uppercase">No Inventory Items Logged</p>
+                  <p className="mt-2 text-xs text-slate-600">Tap the "+" button below to import your first multi-brand shipment batch.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {inventoryRecords.map((item) => {
                     // Badge configuration based on stock count
                     let badgeClass = '';
                     let badgeLabel = '';
                     if (item.quantity === 0) {
-                      badgeClass = 'bg-red-50 text-red-700 border-red-200';
+                      badgeClass = 'bg-red-400 text-black border-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]';
                       badgeLabel = 'Out of Stock';
                     } else if (item.quantity <= 3) {
-                      badgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
-                      badgeLabel = `Low Stock (${item.quantity} left)`;
+                      badgeClass = 'bg-yellow-300 text-black border-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]';
+                      badgeLabel = `Low Stock (${item.quantity})`;
                     } else {
-                      badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                      badgeClass = 'bg-green-400 text-black border-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]';
                       badgeLabel = `${item.quantity} in Stock`;
                     }
 
                     return (
-                      <div key={item.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
+                      <div key={item.id} className="bg-white rounded-xl border-2 border-black p-4 shadow-neobrutal-sm flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-neobrutal transition-all duration-200">
                         <div className="flex justify-between items-start gap-2 mb-3">
                           <div className="space-y-1">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Batch #{item.id}</span>
-                            <h3 className="text-base font-bold text-slate-900">{item.brand}</h3>
+                            <span className="text-[10px] font-sans font-bold text-slate-500 uppercase tracking-wider">Batch #{item.id}</span>
+                            <h3 className="text-base font-sans font-bold text-black truncate max-w-[130px]">{item.brand}</h3>
                           </div>
-                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${badgeClass}`}>
+                          <span className={`text-[9px] font-sans font-bold px-2 py-0.5 rounded-md border-2 ${badgeClass} uppercase tracking-wider shrink-0`}>
                             {badgeLabel}
                           </span>
                         </div>
 
-                        <div className="border-t border-slate-100 pt-3.5 grid grid-cols-2 gap-3 text-xs font-mono">
+                        <div className="border-t-2 border-black pt-3 grid grid-cols-2 gap-3 text-xs font-mono">
                           <div>
-                            <span className="text-slate-400 block font-sans font-semibold text-[10px] uppercase">Wholesale</span>
-                            <span className="text-slate-700 font-bold">৳{(item.wholesaleCost / 100).toFixed(2)}</span>
+                            <span className="text-slate-600 block font-sans font-bold text-[9px] uppercase tracking-wider">Wholesale</span>
+                            <span className="text-black font-extrabold">৳{(item.wholesaleCost / 100).toFixed(2)}</span>
                           </div>
                           <div>
-                            <span className="text-slate-400 block font-sans font-semibold text-[10px] uppercase">True Unit Cost</span>
-                            <span className="text-emerald-700 font-bold">৳{(item.trueCost / 100).toFixed(2)}</span>
+                            <span className="text-slate-600 block font-sans font-bold text-[9px] uppercase tracking-wider">True Cost</span>
+                            <span className="text-green-600 font-extrabold">৳{(item.trueCost / 100).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -453,39 +459,45 @@ function App() {
           }
         }}
         disabled={dbStatus !== 'ready'}
-        className="fixed bottom-20 right-6 w-14 h-14 bg-sky-600 active:bg-sky-700 hover:bg-sky-500 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 z-40 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+        className="fixed bottom-24 right-6 w-14 h-14 bg-purple-600 text-white rounded-full border-[3px] border-black shadow-neobrutal-sm hover:shadow-neobrutal active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center transition-all z-40 disabled:opacity-50 disabled:pointer-events-none"
         aria-label={activeTab === 'inventory' ? 'Import Shipment' : 'Add Transaction'}
       >
-        <Plus className="w-6 h-6" />
+        <Plus className="w-7 h-7 stroke-[3px]" />
       </button>
 
-      {/* iOS-Style Bottom Tab Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2.5 px-6 flex justify-around items-center z-40 shadow-lg min-h-[64px]">
+      {/* Neobrutalist Bottom Tab Bar */}
+      <div className="fixed bottom-4 left-4 right-4 bg-white border-[3px] border-black rounded-2xl py-2.5 px-4 flex justify-around items-center z-40 shadow-neobrutal min-h-[68px] max-w-2xl mx-auto">
         <button
           onClick={() => setActiveTab('dashboard')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-semibold min-h-[44px] min-w-[60px] justify-center transition-colors ${
-            activeTab === 'dashboard' ? 'text-sky-600' : 'text-slate-400 active:text-slate-600'
+          className={`flex flex-col items-center gap-1 text-[10px] font-sans font-bold uppercase tracking-wider min-h-[44px] min-w-[64px] justify-center transition-all rounded-xl border-2 ${
+            activeTab === 'dashboard'
+              ? 'bg-purple-600 text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+              : 'text-slate-700 border-transparent hover:bg-slate-100 active:translate-y-[1px]'
           }`}
         >
-          <LayoutDashboard className="w-5 h-5" />
-          <span>Dashboard</span>
+          <LayoutDashboard className="w-5 h-5 shrink-0" />
+          <span>Metrics</span>
         </button>
         <button
           onClick={() => setActiveTab('finances')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-semibold min-h-[44px] min-w-[60px] justify-center transition-colors ${
-            activeTab === 'finances' ? 'text-sky-600' : 'text-slate-400 active:text-slate-600'
+          className={`flex flex-col items-center gap-1 text-[10px] font-sans font-bold uppercase tracking-wider min-h-[44px] min-w-[64px] justify-center transition-all rounded-xl border-2 ${
+            activeTab === 'finances'
+              ? 'bg-purple-600 text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+              : 'text-slate-700 border-transparent hover:bg-slate-100 active:translate-y-[1px]'
           }`}
         >
-          <DollarSign className="w-5 h-5" />
+          <DollarSign className="w-5 h-5 shrink-0" />
           <span>Finances</span>
         </button>
         <button
           onClick={() => setActiveTab('inventory')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-semibold min-h-[44px] min-w-[60px] justify-center transition-colors ${
-            activeTab === 'inventory' ? 'text-sky-600' : 'text-slate-400 active:text-slate-600'
+          className={`flex flex-col items-center gap-1 text-[10px] font-sans font-bold uppercase tracking-wider min-h-[44px] min-w-[64px] justify-center transition-all rounded-xl border-2 ${
+            activeTab === 'inventory'
+              ? 'bg-purple-600 text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+              : 'text-slate-700 border-transparent hover:bg-slate-100 active:translate-y-[1px]'
           }`}
         >
-          <Package className="w-5 h-5" />
+          <Package className="w-5 h-5 shrink-0" />
           <span>Inventory</span>
         </button>
       </div>

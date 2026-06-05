@@ -30,28 +30,28 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
       label: 'Tailoring Net',
       value: metrics.tailoringNet,
       icon: Scissors,
-      isProfit: metrics.tailoringNet >= 0,
+      bgClass: 'bg-green-300',
       description: 'Service fees minus expenses'
     },
     {
       label: 'Clothing Net',
       value: metrics.clothingNet,
       icon: Shirt,
-      isProfit: metrics.clothingNet >= 0,
+      bgClass: 'bg-cyan-200',
       description: 'Retail sales minus overhead'
     },
     {
       label: 'Total Business Profit',
       value: metrics.totalBusinessProfit,
       icon: TrendingUp,
-      isProfit: metrics.totalBusinessProfit >= 0,
+      bgClass: 'bg-yellow-200',
       description: 'Combined business income'
     },
     {
       label: 'Safety Pocket',
       value: metrics.safetyPocket,
       icon: Wallet,
-      isProfit: metrics.safetyPocket >= 0,
+      bgClass: 'bg-purple-300',
       description: 'Profit minus personal spent'
     }
   ];
@@ -65,21 +65,19 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
           return (
             <div 
               key={idx} 
-              className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between min-h-[120px] transition-all hover:shadow-sm"
+              className={`${card.bgClass} text-black rounded-2xl border-[3px] border-black p-4 shadow-neobrutal-sm flex flex-col justify-between min-h-[130px] transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-neobrutal select-none`}
             >
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <span className="text-[10px] sm:text-xs font-sans font-extrabold uppercase tracking-wider text-black leading-tight">
                   {card.label}
                 </span>
-                <IconComponent className={`w-4 h-4 shrink-0 ${card.isProfit ? 'text-emerald-500' : 'text-red-500'}`} />
+                <IconComponent className="w-4.5 h-4.5 shrink-0 text-black stroke-[2.5px]" />
               </div>
               <div className="mt-2.5 space-y-1">
-                <span className={`font-mono text-base sm:text-lg font-bold tracking-tight block ${
-                  card.isProfit ? 'text-emerald-600' : 'text-red-600'
-                }`}>
+                <span className="font-display text-lg sm:text-xl font-extrabold tracking-tight block text-black">
                   {formatCurrency(card.value)}
                 </span>
-                <span className="text-[10px] text-slate-400 font-medium leading-tight block">
+                <span className="text-[9px] text-slate-800 font-bold leading-tight block uppercase">
                   {card.description}
                 </span>
               </div>
@@ -89,20 +87,20 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
       </section>
 
       {/* Active Stock List Section */}
-      <section className="space-y-3">
+      <section className="space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-            <Package className="w-4 h-4" /> Active Stock Items
+          <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+            <Package className="w-4 h-4 text-black" /> Active Stock Items
           </h2>
-          <span className="text-xs font-semibold text-slate-400">
+          <span className="text-xs font-sans font-bold text-slate-600">
             Total Batches: {inventoryItems.length}
           </span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100 shadow-xs">
+        <div className="bg-white rounded-xl border-[3px] border-black overflow-hidden divide-y-2 divide-black shadow-neobrutal-sm">
           {inventoryItems.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-sm">
-              <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <div className="p-8 text-center text-slate-500 text-sm">
+              <Package className="w-8 h-8 mx-auto mb-2 opacity-50 text-black" />
               No inventory batches logged yet. Go to the Inventory tab to import a shipment.
             </div>
           ) : (
@@ -113,42 +111,42 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
               const isOutOfStock = item.quantity === 0;
 
               if (isOutOfStock) {
-                badgeClass = 'bg-red-50 text-red-700 border-red-200';
+                badgeClass = 'bg-red-400 text-black border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]';
                 badgeLabel = 'Out of Stock';
               } else if (item.quantity <= 3) {
-                badgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+                badgeClass = 'bg-yellow-300 text-black border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]';
                 badgeLabel = `${item.quantity} left`;
               } else {
-                badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                badgeClass = 'bg-green-400 text-black border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]';
                 badgeLabel = `${item.quantity} in Stock`;
               }
 
               return (
                 <div 
                   key={item.id} 
-                  className="p-4 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors"
+                  className="p-4 flex items-center justify-between gap-4 hover:bg-yellow-50/20 transition-colors"
                 >
                   <div className="space-y-1.5 min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-bold text-slate-900 truncate">{item.brand}</h3>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${badgeClass} shrink-0`}>
+                      <h3 className="text-sm sm:text-base font-sans font-bold text-black truncate">{item.brand}</h3>
+                      <span className={`text-[9px] font-sans font-bold px-2 py-0.5 rounded-md border-2 ${badgeClass} uppercase tracking-wider shrink-0`}>
                         {badgeLabel}
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-4 text-[11px] font-mono text-slate-500">
-                      <span>Wholesale: <strong className="text-slate-700">৳{(item.wholesaleCost / 100).toFixed(2)}</strong></span>
-                      <span>True Cost: <strong className="text-emerald-700">৳{(item.trueCost / 100).toFixed(2)}</strong></span>
+                    <div className="flex items-center gap-4 text-[11px] font-mono text-slate-700">
+                      <span>Wholesale: <strong className="text-black font-extrabold">৳{(item.wholesaleCost / 100).toFixed(2)}</strong></span>
+                      <span>True Cost: <strong className="text-green-600 font-extrabold">৳{(item.trueCost / 100).toFixed(2)}</strong></span>
                     </div>
                   </div>
 
                   <button
                     onClick={() => onSellClick(item)}
                     disabled={isOutOfStock}
-                    className={`min-h-[44px] min-w-[70px] px-3.5 py-2 text-xs font-bold rounded-lg transition-all active:scale-95 flex items-center justify-center border ${
+                    className={`min-h-[44px] min-w-[76px] px-4 py-2 text-xs font-sans font-bold rounded-xl transition-all flex items-center justify-center border-2 border-black uppercase tracking-wider ${
                       isOutOfStock
-                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50'
-                        : 'bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white border-transparent shadow-xs'
+                        ? 'bg-slate-200 text-slate-500 border-black cursor-not-allowed opacity-50'
+                        : 'bg-purple-600 hover:bg-purple-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] text-white shadow-neobrutal-sm'
                     }`}
                   >
                     Sell
