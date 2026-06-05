@@ -56,8 +56,84 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
     }
   ];
 
+  // Dynamic Tailor Cat Mascot logic
+  const getMascotConfig = () => {
+    // 1. Shelves are empty (no items logged)
+    if (inventoryItems.length === 0) {
+      return {
+        image: '/tailor_cat.png',
+        dialogue: "আরে আপু, ক্যাশবাক্স তো বসাইছি কিন্তু দোকান তো ফাঁকা! আজকা কি বউনি হইবো না? ইনভেন্টরি ট্যাবে গিয়া জলদি কিছু মাল আমদানি করো মিয়াও! 📦",
+        title: "টেইলর বিলাই (বউনি নাই)"
+      };
+    }
+
+    // 2. Out of stock / Low stock warning
+    const lowStockItems = inventoryItems.filter(item => item.quantity <= 3);
+    const hasLowStock = lowStockItems.length > 0;
+    
+    // 3. Safety Pocket status checks
+    if (metrics.safetyPocket < 0) {
+      return {
+        image: '/tailor_cat.png',
+        dialogue: "হায় হায় আপু! লাভের গুড় পিঁপড়ায় খাইলো! পকেটে লাল বাতি জইলা গেছে, ফতুর দশা মিয়াও! নতুন মাল কেনা আপাতত বন্ধ রাখো! 🙀",
+        title: "টেইলর বিলাই (লাল বাতি)"
+      };
+    }
+
+    if (hasLowStock) {
+      return {
+        image: '/tailor_cat.png',
+        dialogue: "আরে মিয়াও! দোকানে কিছু মাল তো হাওয়া হইয়া ফক্কা! বউনি করার মতও কিছু নাই। কাস্টমার চিল্লাইবার আগে নতুন লট টানো! 🐾",
+        title: "টেইলর বিলাই (মাল শেষ)"
+      };
+    }
+
+    if (metrics.safetyPocket >= 5000) { // 50 Taka
+      return {
+        image: '/tailor_cat.png',
+        dialogue: "পুরা ক্যালাও আপু! ক্যাশবাক্সে কড়কড়ে টাকা রেডি! নতুন কাপ্তান বা লট আমদানির টাইম আইসা গেছে, কোপায় দাও মিয়াও! 🧵",
+        title: "টেইলর বিলাই (ক্যালাও)"
+      };
+    }
+
+    return {
+      image: '/tailor_cat.png',
+      dialogue: "মিয়াও! ক্যাশবাক্সের অবস্থা সুবিধার না আপু। হাত একটু টান করো, নাইলে ব্যবসা পুরা লাল বাতি হইয়া যাইবো! 🐾",
+      title: "টেইলর বিলাই (সাবধানী)"
+    };
+  };
+
+  const mascot = getMascotConfig();
+
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
+      {/* Tailor Cat Shopkeeper Counter Box */}
+      <section className="bg-[#fceec7] rounded-2xl border-[3px] border-black p-4 shadow-neobrutal flex flex-col sm:flex-row gap-4 items-center select-none">
+        {/* Cat Sprite Box */}
+        <div className="w-20 h-20 shrink-0 bg-[#fceec7] border-2 border-black rounded-xl p-1 flex items-center justify-center shadow-neobrutal-sm">
+          <img 
+            src={mascot.image} 
+            alt={mascot.title} 
+            className="w-full h-full object-contain"
+          />
+        </div>
+
+        {/* Dialog bubble */}
+        <div className="flex-1 bg-white border-2 border-black rounded-xl p-3 relative shadow-neobrutal-sm w-full">
+          {/* Bubble tail (neobrutalist style simple notch) */}
+          <div className="hidden sm:block absolute left-[-8px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white border-l-2 border-b-2 border-black rotate-45"></div>
+          
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-sans font-extrabold uppercase tracking-wider text-purple-600">
+              {mascot.title}
+            </span>
+            <p className="font-sans text-xs sm:text-sm font-semibold text-black leading-relaxed">
+              {mascot.dialogue}
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* 2x2 Metrics Grid */}
       <section className="grid grid-cols-2 gap-4">
         {metricCards.map((card, idx) => {
