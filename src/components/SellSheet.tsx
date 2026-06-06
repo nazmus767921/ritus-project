@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { executeProductSale } from '../db/queries/inventory';
 import { calculatePreferredPrice } from '../lib/math/pricing';
-import { roundPrice } from '../lib/math/rounding';
+import { roundPrice, formatCurrency } from '../lib/math/rounding';
 import BottomSheet from './BottomSheet';
 import SystemAlert from './SystemAlert';
 
@@ -30,7 +30,7 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
 
   useEffect(() => {
     if (isOpen && item) {
-      setRetailPriceStr((preferredPrice / 100).toFixed(2));
+      setRetailPriceStr(`${Math.round(preferredPrice / 100)}`);
     } else {
       setRetailPriceStr('');
     }
@@ -108,15 +108,15 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
           <div className="border-t-2 border-black pt-3 grid grid-cols-3 gap-2 text-[10px] font-mono">
             <div>
               <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Wholesale</span>
-              <span className="text-black font-extrabold">৳{(item.wholesaleCost / 100).toFixed(2)}</span>
+              <span className="text-black font-extrabold">{formatCurrency(item.wholesaleCost)}</span>
             </div>
             <div>
               <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">True Cost</span>
-              <span className="text-green-600 font-extrabold">৳{(item.trueCost / 100).toFixed(2)}</span>
+              <span className="text-green-600 font-extrabold">{formatCurrency(item.trueCost)}</span>
             </div>
             <div>
               <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Pref Sell ({Math.round(targetMarkup * 100)}% Markup)</span>
-              <span className="text-purple-600 font-extrabold">৳{(preferredPrice / 100).toFixed(2)}</span>
+              <span className="text-purple-600 font-extrabold">{formatCurrency(preferredPrice)}</span>
             </div>
           </div>
         </div>
