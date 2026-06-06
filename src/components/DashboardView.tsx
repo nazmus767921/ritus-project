@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Scissors, Shirt, TrendingUp, Wallet, Package, AlertCircle, Layers } from 'lucide-react';
 import { calculatePreferredPrice } from '../lib/math/pricing';
+import { formatCurrency } from '../lib/math/rounding';
 import type { DashboardMetrics, InventoryItemRecord } from '../db/types';
 
 interface DashboardViewProps {
@@ -19,12 +20,7 @@ export default function DashboardView({
   safetyPocketTarget,
   targetMarkup
 }: DashboardViewProps) {
-  // Format Poisha to Taka helper
-  const formatCurrency = (amountInPoisha: number) => {
-    const taka = amountInPoisha / 100;
-    const sign = taka < 0 ? '-' : '';
-    return `${sign}৳${Math.abs(taka).toFixed(2)}`;
-  };
+
 
   const formatNumber = (n: number) => n.toLocaleString();
 
@@ -327,9 +323,9 @@ export default function DashboardView({
                     </div>
                     
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono text-slate-700">
-                      <span>Wholesale: <strong className="text-black font-extrabold">৳{(item.wholesaleCost / 100).toFixed(2)}</strong></span>
-                      <span>True Cost: <strong className="text-green-600 font-extrabold">৳{(item.trueCost / 100).toFixed(2)}</strong></span>
-                      <span>Pref Sell: <strong className="text-purple-600 font-extrabold">৳{(preferredPrice / 100).toFixed(2)}</strong></span>
+                      <span>Wholesale: <strong className="text-black font-extrabold">{formatCurrency(item.wholesaleCost)}</strong></span>
+                      <span>True Cost: <strong className="text-green-600 font-extrabold">{formatCurrency(item.trueCost)}</strong></span>
+                      <span>Pref Sell: <strong className="text-purple-600 font-extrabold">{formatCurrency(preferredPrice)}</strong></span>
                     </div>
                   </div>
 
