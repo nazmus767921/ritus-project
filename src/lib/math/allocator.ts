@@ -1,3 +1,5 @@
+import { roundPrice } from './rounding';
+
 export interface InputItem {
   quantity: number;
   wholesaleCost: number; // Scaled by 100 (representing Poisha)
@@ -23,5 +25,5 @@ export function calculateOptionA(courierFee: number, items: InputItem[]): number
   // Calculate per-unit fee in scaled integer, rounded to the nearest integer
   const perUnitFee = Math.round(courierFee / totalUnits);
 
-  return items.map(item => item.wholesaleCost + perUnitFee);
+  return items.map(item => roundPrice(item.wholesaleCost + perUnitFee));
 }

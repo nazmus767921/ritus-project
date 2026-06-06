@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { executeProductSale } from '../db/queries/inventory';
 import { calculatePreferredPrice } from '../lib/math/pricing';
+import { roundPrice } from '../lib/math/rounding';
 
 interface SellSheetProps {
   isOpen: boolean;
@@ -47,9 +48,10 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
 
       const parsedPrice = parseFloat(retailPriceStr);
       const scaledPrice = Math.round(parsedPrice * 100);
+      const roundedPrice = roundPrice(scaledPrice);
 
       // Boundary Validation 2: Negative or zero pricing
-      if (isNaN(scaledPrice) || scaledPrice <= 0) {
+      if (isNaN(roundedPrice) || roundedPrice <= 0) {
         throw new Error('Retail sale price must be a positive number.');
       }
 
@@ -59,7 +61,7 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
       }
 
       // Execute database transaction (decrements quantity and logs transaction)
-      await executeProductSale(item.id, scaledPrice, note, customerName);
+      await executeProductSale(item.id, roundedPrice, note, customerName);
 
       // Reset state and trigger callbacks
       setRetailPriceStr('');

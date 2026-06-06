@@ -66,6 +66,16 @@ Update this file after every meaningful implementation change.
 
 - None.
 
+## Completed
+
+- **Refactor: Stock Tracking, Math Refactoring & UI Redesign**:
+  - [x] Added `initialQuantity` column to schema and InventoryItemRecord type
+  - [x] Created rounding utility (`roundStock`, `roundPrice`) and applied across allocator, pricing, shipment queries, and inventory queries
+  - [x] Updated quantity parsing in ShipmentForm to use `Math.round(parseFloat())`
+  - [x] Redesigned TransactionForm category selector as 2-column icon grid
+  - [x] Updated DashboardView badges to `[initial / remaining]` format
+  - [x] Added data migration in `client.ts` for existing `initial_quantity` column
+
 ## Next Up
 
 - None.

@@ -1,6 +1,7 @@
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../client';
 import { shipments, inventoryItems, transactions } from '../schema';
+import { roundStock, roundPrice } from '../../lib/math/rounding';
 import type { ShipmentRecord, InventoryItemRecord } from '../types';
 
 export interface ShipmentItemInput {
@@ -32,12 +33,14 @@ export async function createShipmentTransaction(
     }
 
     for (const item of items) {
+      const qty = roundStock(item.quantity);
       await tx.insert(inventoryItems).values({
         shipmentId: insertedShipment.id,
         brand: item.brand,
-        quantity: item.quantity,
-        wholesaleCost: item.wholesaleCost,
-        trueCost: item.trueCost
+        quantity: qty,
+        initialQuantity: qty,
+        wholesaleCost: roundPrice(item.wholesaleCost),
+        trueCost: roundPrice(item.trueCost)
       });
     }
 
@@ -103,21 +106,27 @@ export async function updateShipment(
 
     for (const item of items) {
       if (item.id) {
+        const [existing] = await tx.select({ initialQuantity: inventoryItems.initialQuantity })
+          .from(inventoryItems)
+          .where(eq(inventoryItems.id, item.id));
         await tx.update(inventoryItems)
           .set({
             brand: item.brand,
-            quantity: item.quantity,
-            wholesaleCost: item.wholesaleCost,
-            trueCost: item.trueCost
+            quantity: roundStock(item.quantity),
+            initialQuantity: existing?.initialQuantity ?? roundStock(item.quantity),
+            wholesaleCost: roundPrice(item.wholesaleCost),
+            trueCost: roundPrice(item.trueCost)
           })
           .where(eq(inventoryItems.id, item.id));
       } else {
+        const qty = roundStock(item.quantity);
         await tx.insert(inventoryItems).values({
           shipmentId,
           brand: item.brand,
-          quantity: item.quantity,
-          wholesaleCost: item.wholesaleCost,
-          trueCost: item.trueCost
+          quantity: qty,
+          initialQuantity: qty,
+          wholesaleCost: roundPrice(item.wholesaleCost),
+          trueCost: roundPrice(item.trueCost)
         });
       }
     }

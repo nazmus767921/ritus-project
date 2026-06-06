@@ -10,8 +10,8 @@ describe('calculateOptionA', () => {
     // Courier fee: 150.00 Taka (15000 Poisha)
     // Item: 10 units, wholesale cost 120.00 Taka (12000 Poisha) each
     const result = calculateOptionA(15000, [{ quantity: 10, wholesaleCost: 12000 }]);
-    // 15000 / 10 = 1500 per unit fee. True cost: 12000 + 1500 = 13500 (135.00 Taka)
-    expect(result).toEqual([13500]);
+    // 15000 / 10 = 1500 per unit fee. True cost: 12000 + 1500 = 13500, rounded to nearest 10 Taka => 14000
+    expect(result).toEqual([14000]);
   });
 
   it('should handle correct allocation math for multi-item lists', () => {
@@ -30,9 +30,9 @@ describe('calculateOptionA', () => {
     // Courier fee: 100.00 Taka (10000 Poisha)
     // Item 1: 3 units, wholesale cost 10.00 Taka (1000 Poisha)
     // Total units = 3. Courier fee per unit = 10000 / 3 = 3333.333... rounded to 3333 Poisha.
-    // True cost = 1000 + 3333 = 4333 Poisha.
+    // True cost = 1000 + 3333 = 4333, rounded to nearest 10 Taka => 4000.
     const result = calculateOptionA(10000, [{ quantity: 3, wholesaleCost: 1000 }]);
-    expect(result).toEqual([4333]);
+    expect(result).toEqual([4000]);
   });
 
   it('should throw error when total units is zero', () => {

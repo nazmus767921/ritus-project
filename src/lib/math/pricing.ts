@@ -3,8 +3,10 @@
  * All monetary amounts are integers (Poisha). Markup is a decimal,
  * e.g. 0.50 means 50% over cost.
  */
+import { roundPrice } from './rounding';
+
 export function calculatePreferredPrice(trueCost: number, markup: number): number {
-  return Math.round(trueCost * (1 + Math.max(0, markup)));
+  return roundPrice(Math.round(trueCost * (1 + Math.max(0, markup))));
 }
 
 export function calculateProfitMargin(revenue: number, cost: number): number {

@@ -224,13 +224,13 @@ export default function DashboardView({
 
               if (isOutOfStock) {
                 badgeClass = 'bg-red-400 text-black border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]';
-                badgeLabel = 'Out of Stock';
+                badgeLabel = `${item.initialQuantity} / ${item.quantity} left`;
               } else if (item.quantity <= 3) {
                 badgeClass = 'bg-yellow-300 text-black border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]';
-                badgeLabel = `${item.quantity} left`;
+                badgeLabel = `${item.initialQuantity} / ${item.quantity} left`;
               } else {
                 badgeClass = 'bg-green-400 text-black border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]';
-                badgeLabel = `${item.quantity} in Stock`;
+                badgeLabel = `${item.initialQuantity} / ${item.quantity} left`;
               }
 
               const preferredPrice = calculatePreferredPrice(item.trueCost, targetMarkup);

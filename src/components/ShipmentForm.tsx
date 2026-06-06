@@ -132,10 +132,10 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
           throw new Error(`Row ${index + 1}: Brand name cannot be empty.`);
         }
 
-        const qty = parseInt(line.quantityStr);
-        if (isNaN(qty) || qty <= 0) {
-          throw new Error(`Row ${index + 1}: Quantity must be an integer greater than 0.`);
-        }
+    const qty = Math.round(parseFloat(line.quantityStr));
+      if (isNaN(qty) || qty <= 0) {
+        throw new Error(`Row ${index + 1}: Quantity must be a positive number.`);
+      }
 
         const cost = Math.round(parseFloat(line.wholesaleCostStr) * 100);
         if (isNaN(cost) || cost <= 0) {
