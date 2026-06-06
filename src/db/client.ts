@@ -74,6 +74,27 @@ export async function initDb() {
     );
   `);
 
+  // Migrate schema for transactions table additions (try-catch prevents errors if columns already exist)
+  try {
+    await sqlite3.exec(dbPtr, `ALTER TABLE transactions ADD COLUMN status TEXT DEFAULT 'active' NOT NULL;`);
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
+  try {
+    await sqlite3.exec(dbPtr, `ALTER TABLE transactions ADD COLUMN inventory_item_id INTEGER REFERENCES inventory_items(id) ON DELETE SET NULL;`);
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
+  // Create settings table
+  await sqlite3.exec(dbPtr, `
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+
   // Build the Drizzle client bridge using the sqlite-proxy driver
   dbInstance = drizzle(
     async (sql, params, method) => {

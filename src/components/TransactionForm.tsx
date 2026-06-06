@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Check } from 'lucide-react';
-import { insertTransaction } from '../db/queries/transactions';
+import { insertTransaction, updateTransaction } from '../db/queries/transactions';
 
 interface TransactionFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: () => void;
+  transaction?: any | null;
+  inventoryItems?: any[];
+  dynamicMargin?: number;
 }
 
 type TransactionType = 'income' | 'expense';
@@ -16,26 +19,63 @@ type TransactionCategory =
   | 'tailoring_income'
   | 'clothing_income';
 
-export default function TransactionForm({ isOpen, onClose, onSave }: TransactionFormProps) {
+export default function TransactionForm({
+  isOpen,
+  onClose,
+  onSave,
+  transaction = null,
+  inventoryItems = [],
+  dynamicMargin = 0.20
+}: TransactionFormProps) {
   const [amountStr, setAmountStr] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<TransactionType>('income');
   const [category, setCategory] = useState<TransactionCategory>('tailoring_income');
+  const [inventoryItemId, setInventoryItemId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // iOS-style Alert modal state
   const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
 
-  // When type changes, automatically reset/default the active category to the first option of the new type (Option A)
+  // When type changes, automatically reset/default the active category
   useEffect(() => {
-    if (type === 'income') {
-      setCategory('tailoring_income');
-    } else {
-      setCategory('personal_expense');
+    if (!transaction) {
+      if (type === 'income') {
+        setCategory('tailoring_income');
+      } else {
+        setCategory('personal_expense');
+      }
+      setInventoryItemId(null);
     }
-  }, [type]);
+  }, [type, transaction]);
+
+  // Load transaction if editing
+  useEffect(() => {
+    if (isOpen) {
+      if (transaction) {
+        setAmountStr((transaction.amount / 100).toFixed(2));
+        setDescription(transaction.description);
+        setCategory(transaction.category);
+        setInventoryItemId(transaction.inventoryItemId || null);
+        
+        const isIncome = transaction.category === 'tailoring_income' || transaction.category === 'clothing_income';
+        setType(isIncome ? 'income' : 'expense');
+      } else {
+        setAmountStr('');
+        setDescription('');
+        setType('income');
+        setCategory('tailoring_income');
+        setInventoryItemId(null);
+      }
+    }
+  }, [isOpen, transaction]);
 
   if (!isOpen) return null;
+
+  // Filter active inventory items (include current linked item even if stock is 0 so it displays correctly when editing)
+  const activeItemsForDropdown = inventoryItems.filter(item => 
+    item.quantity > 0 || (transaction && transaction.inventoryItemId === item.id)
+  );
 
   const handleSave = async () => {
     try {
@@ -59,25 +99,43 @@ export default function TransactionForm({ isOpen, onClose, onSave }: Transaction
         throw new Error('Transaction description cannot be blank.');
       }
 
-      // If valid, save to database
-      await insertTransaction({
-        amount: scaledAmount,
-        category,
-        description: description.trim(),
-        createdAt: new Date(),
-      });
+      // Validation 4: Stock selection mandatory for clothing income
+      if (category === 'clothing_income' && !inventoryItemId) {
+        throw new Error('Please select a stock item for clothing sales.');
+      }
+
+      if (transaction) {
+        // Edit mode: update transaction
+        await updateTransaction(transaction.id, {
+          amount: scaledAmount,
+          category,
+          description: description.trim(),
+          createdAt: transaction.createdAt,
+          status: transaction.status,
+          inventoryItemId: category === 'clothing_income' ? inventoryItemId : null
+        });
+      } else {
+        // Insert mode
+        await insertTransaction({
+          amount: scaledAmount,
+          category,
+          description: description.trim(),
+          createdAt: new Date(),
+          inventoryItemId: category === 'clothing_income' ? inventoryItemId : null
+        });
+      }
 
       // Clear form inputs
       setAmountStr('');
       setDescription('');
       setType('income');
       setCategory('tailoring_income');
+      setInventoryItemId(null);
 
       // Callback to refresh data and close
       onSave();
       onClose();
     } catch (err: any) {
-      // Trigger native-looking iOS Alert modal on validation error
       setAlertConfig({
         title: 'Validation Error',
         message: err.message || 'Please check your inputs and try again.',
@@ -109,7 +167,9 @@ export default function TransactionForm({ isOpen, onClose, onSave }: Transaction
         
         {/* Retro Dialog Title Bar */}
         <div className="bg-slate-200 border-b-[3px] border-black px-4 py-2.5 flex items-center justify-between select-none">
-          <span className="font-display font-extrabold text-sm uppercase text-black">New_Transaction.exe</span>
+          <span className="font-display font-extrabold text-sm uppercase text-black">
+            {transaction ? 'Edit_Transaction.exe' : 'New_Transaction.exe'}
+          </span>
           <button
             onClick={onClose}
             className="w-7 h-7 bg-red-400 border-2 border-black rounded flex items-center justify-center text-black font-extrabold text-xs active:translate-x-[1px] active:translate-y-[1px] active:shadow-none hover:bg-red-500 cursor-pointer shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] transition-all"
@@ -149,44 +209,11 @@ export default function TransactionForm({ isOpen, onClose, onSave }: Transaction
             </button>
           </div>
 
-          {/* Form Group: Inputs */}
-          <div className="space-y-4">
-            {/* Amount Field */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-sans font-bold text-slate-700 uppercase">Amount (Taka)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-black font-bold font-mono">৳</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={amountStr}
-                  onChange={(e) => setAmountStr(e.target.value)}
-                  className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 pl-7 pr-3 font-mono text-sm text-black focus:outline-none focus:bg-white focus:ring-0 min-h-[44px]"
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            {/* Description Field */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-sans font-bold text-slate-700 uppercase">Description</label>
-              <input
-                type="text"
-                placeholder="e.g. Silk tailoring order"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-sans text-sm text-black focus:outline-none focus:bg-white focus:ring-0 min-h-[44px]"
-              />
-            </div>
-          </div>
-
-          {/* Category Sub-selector Title */}
+          {/* Form Group: Category Selector */}
           <div className="space-y-2">
             <span className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider">
               Select Category
             </span>
-            {/* Grouped Category Options Grid */}
             <div className="grid grid-cols-1 gap-2">
               {categoriesConfig[type].map((cat) => {
                 const isSelected = category === cat.id;
@@ -194,7 +221,10 @@ export default function TransactionForm({ isOpen, onClose, onSave }: Transaction
                   <button
                     key={cat.id}
                     type="button"
-                    onClick={() => setCategory(cat.id)}
+                    onClick={() => {
+                      setCategory(cat.id);
+                      if (cat.id !== 'clothing_income') setInventoryItemId(null);
+                    }}
                     className={`w-full text-left px-4 py-3 rounded-xl border-2 flex items-center justify-between min-h-[48px] transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-purple-100 border-black text-black font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
@@ -210,6 +240,73 @@ export default function TransactionForm({ isOpen, onClose, onSave }: Transaction
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Stock Item Selector - Displays when Clothing Retail Sale is selected */}
+          {category === 'clothing_income' && (
+            <div className="flex flex-col gap-1.5 animate-fade-in">
+              <label className="text-xs font-sans font-bold text-slate-700 uppercase">Select Stock Item</label>
+              <select
+                value={inventoryItemId || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const itemId = val ? parseInt(val) : null;
+                  setInventoryItemId(itemId);
+                  
+                  // Autofill preferred selling price based on dynamic margin
+                  if (itemId) {
+                    const selectedItem = inventoryItems.find(item => item.id === itemId);
+                    if (selectedItem) {
+                      const preferredPrice = selectedItem.trueCost / (1 - dynamicMargin);
+                      setAmountStr((preferredPrice / 100).toFixed(2));
+                      setDescription(`Sale: ${selectedItem.brand} (Cost: ৳${(selectedItem.trueCost / 100).toFixed(2)})`);
+                    }
+                  }
+                }}
+                className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-sans text-sm text-black focus:outline-none min-h-[44px]"
+              >
+                <option value="">-- Choose Stock Item --</option>
+                {activeItemsForDropdown.map(item => {
+                  const preferredPrice = item.trueCost / (1 - dynamicMargin);
+                  return (
+                    <option key={item.id} value={item.id}>
+                      {item.brand} (Batch #{item.id}) - Qty: {item.quantity} - Pref: ৳{(preferredPrice / 100).toFixed(2)}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
+
+          {/* Form Group: Inputs */}
+          <div className="space-y-4">
+            {/* Amount Field */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-sans font-bold text-slate-700 uppercase">Amount (Taka)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-black font-bold font-mono">৳</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={amountStr}
+                  onChange={(e) => setAmountStr(e.target.value)}
+                  className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 pl-7 pr-3 font-mono text-sm text-black focus:outline-none focus:bg-white focus:ring-0 min-h-[44px]"
+                />
+              </div>
+            </div>
+
+            {/* Description Field */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-sans font-bold text-slate-700 uppercase">Description</label>
+              <input
+                type="text"
+                placeholder="e.g. Silk tailoring order"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-sans text-sm text-black focus:outline-none focus:bg-white focus:ring-0 min-h-[44px]"
+              />
             </div>
           </div>
 

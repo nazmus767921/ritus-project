@@ -16,9 +16,10 @@
 
 ## Storage Model
 - **wa-sqlite (Local Relational Database)**: Persists operational schemas on the user's device:
-  - `transactions`: Stores record values, categories, creation timestamps, and specific text descriptors.
+  - `transactions`: Stores record values, categories, creation timestamps, descriptors, refund status, and linked inventory item references.
   - `shipments`: Records top-level shipping data, including delivery dates and flat courier fees.
   - `inventory_items`: Tracks individual stock items, storing brand names, quantities, base wholesale costs, and adjusted true costs.
+  - `settings`: Stores application-wide settings and target budget benchmarks.
 - **IndexedDB**: Serves as the virtual file system (VFS) layer to back up and persist the SQLite database file across app sessions.
 
 ## Auth and Access Model

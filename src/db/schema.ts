@@ -15,7 +15,9 @@ export const transactions = sqliteTable('transactions', {
     ]
   }).notNull(),
   description: text('description').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  status: text('status').default('active').notNull(), // 'active' | 'refunded'
+  inventoryItemId: integer('inventory_item_id').references(() => inventoryItems.id, { onDelete: 'set null' })
 });
 
 // 2. Shipments Table
@@ -35,4 +37,11 @@ export const inventoryItems = sqliteTable('inventory_items', {
   quantity: integer('quantity').notNull(), // Remaining stock count (must be >= 0)
   wholesaleCost: integer('wholesale_cost').notNull(), // Scaled integer (Taka * 100)
   trueCost: integer('true_cost').notNull() // Calculated: wholesaleCost + proportional courier fee (Scaled integer)
+});
+
+// 4. Settings Table
+// Stores app-wide configurations (e.g. target_profit_margin, safety_pocket_target)
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull()
 });

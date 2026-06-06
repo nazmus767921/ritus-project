@@ -15,6 +15,7 @@ export async function fetchAggregatedMetrics() {
   let personalExpense = 0;
 
   for (const t of allTx) {
+    if (t.status === 'refunded') continue;
     if (t.category === 'tailoring_income') tailoringIncome += t.amount;
     if (t.category === 'tailoring_expense') tailoringExpense += t.amount;
     if (t.category === 'clothing_income') clothingIncome += t.amount;

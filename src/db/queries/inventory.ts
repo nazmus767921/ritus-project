@@ -30,12 +30,14 @@ export async function executeProductSale(itemId: number, retailPrice: number) {
       .set({ quantity: item.quantity - 1 })
       .where(eq(inventoryItems.id, itemId));
 
-    // 3. Log sales revenue transaction
+    // 3. Log sales revenue transaction with linked inventoryItemId
     await tx.insert(transactions).values({
       amount: retailPrice,
       category: 'clothing_income',
       description: `Sale: ${item.brand} (Cost: ৳${(item.trueCost / 100).toFixed(2)})`,
-      createdAt: new Date()
+      createdAt: new Date(),
+      status: 'active',
+      inventoryItemId: itemId
     });
   });
 }

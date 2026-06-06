@@ -1,21 +1,23 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { calculateOptionA } from '../lib/math/allocator';
-import { createShipmentTransaction } from '../db/queries/shipments';
+import { createShipmentTransaction, updateShipment } from '../db/queries/shipments';
 
 interface ShipmentFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: () => void;
+  shipment?: any | null;
 }
 
 interface FormLine {
+  id?: number;
   brand: string;
   quantityStr: string;
   wholesaleCostStr: string;
 }
 
-export default function ShipmentForm({ isOpen, onClose, onSave }: ShipmentFormProps) {
+export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null }: ShipmentFormProps) {
   const [courierFeeStr, setCourierFeeStr] = useState('0.00');
   const [deliveryDateStr, setDeliveryDateStr] = useState('');
   const [lines, setLines] = useState<FormLine[]>([{ brand: '', quantityStr: '', wholesaleCostStr: '' }]);
@@ -24,14 +26,35 @@ export default function ShipmentForm({ isOpen, onClose, onSave }: ShipmentFormPr
   // iOS-style Alert modal state
   const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
 
-  // Set default date to today
+  // Load shipment if editing, otherwise set defaults
   useEffect(() => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    setDeliveryDateStr(`${yyyy}-${mm}-${dd}`);
-  }, [isOpen]);
+    if (isOpen) {
+      if (shipment) {
+        setCourierFeeStr((shipment.courierFee / 100).toFixed(2));
+        
+        const date = new Date(shipment.deliveryDate);
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        setDeliveryDateStr(`${yyyy}-${mm}-${dd}`);
+        
+        setLines(shipment.items.map((item: any) => ({
+          id: item.id,
+          brand: item.brand,
+          quantityStr: item.quantity.toString(),
+          wholesaleCostStr: (item.wholesaleCost / 100).toFixed(2)
+        })));
+      } else {
+        setCourierFeeStr('0.00');
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        setDeliveryDateStr(`${yyyy}-${mm}-${dd}`);
+        setLines([{ brand: '', quantityStr: '', wholesaleCostStr: '' }]);
+      }
+    }
+  }, [isOpen, shipment]);
 
   // Real-time calculation of Option A True Cost per item row
   const liveTrueCosts = useMemo(() => {
@@ -71,7 +94,10 @@ export default function ShipmentForm({ isOpen, onClose, onSave }: ShipmentFormPr
 
   const handleLineChange = (index: number, field: keyof FormLine, value: string) => {
     const newLines = [...lines];
-    newLines[index][field] = value;
+    newLines[index] = {
+      ...newLines[index],
+      [field]: value
+    };
     setLines(newLines);
   };
 
@@ -116,10 +142,10 @@ export default function ShipmentForm({ isOpen, onClose, onSave }: ShipmentFormPr
         }
 
         return {
+          id: line.id,
           brand: brandClean,
           quantity: qty,
           wholesaleCost: cost,
-          // True Cost will be calculated via allocator
           trueCost: 0
         };
       });
@@ -139,11 +165,20 @@ export default function ShipmentForm({ isOpen, onClose, onSave }: ShipmentFormPr
       }));
 
       // 5. Execute DB Transaction
-      await createShipmentTransaction(
-        parsedFee,
-        deliveryDate,
-        itemsToInsert
-      );
+      if (shipment) {
+        await updateShipment(
+          shipment.id,
+          parsedFee,
+          deliveryDate,
+          itemsToInsert
+        );
+      } else {
+        await createShipmentTransaction(
+          parsedFee,
+          deliveryDate,
+          itemsToInsert
+        );
+      }
 
       // Reset Form State
       setCourierFeeStr('0.00');
@@ -171,7 +206,9 @@ export default function ShipmentForm({ isOpen, onClose, onSave }: ShipmentFormPr
         
         {/* Retro Dialog Title Bar */}
         <div className="bg-slate-200 border-b-[3px] border-black px-4 py-2.5 flex items-center justify-between select-none">
-          <span className="font-display font-extrabold text-sm uppercase text-black">Import_Shipment.exe</span>
+          <span className="font-display font-extrabold text-sm uppercase text-black">
+            {shipment ? 'Edit_Shipment.exe' : 'Import_Shipment.exe'}
+          </span>
           <button
             onClick={onClose}
             className="w-7 h-7 bg-red-400 border-2 border-black rounded flex items-center justify-center text-black font-extrabold text-xs active:translate-x-[1px] active:translate-y-[1px] active:shadow-none hover:bg-red-500 cursor-pointer shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] transition-all"
