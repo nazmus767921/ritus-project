@@ -193,12 +193,12 @@ function App() {
   };
 
   const refreshAll = async () => {
-    await Promise.all([
-      refreshTestRecords(),
-      refreshInventoryRecords(),
-      refreshShipmentRecords(),
-      refreshMetrics()
-    ]);
+    // Run sequentially to avoid race conditions on the shared WASM tmpPtr buffer
+    // used by sqlite3.prepare_v2 internally.
+    await refreshTestRecords();
+    await refreshInventoryRecords();
+    await refreshShipmentRecords();
+    await refreshMetrics();
     autoBackupLocal();
   };
 
