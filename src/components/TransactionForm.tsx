@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Check } from 'lucide-react';
+import { Scissors, Shirt, Wallet, Package } from 'lucide-react';
 import { insertTransaction, updateTransaction } from '../db/queries/transactions';
 import { calculatePreferredPrice } from '../lib/math/pricing';
+import { roundPrice } from '../lib/math/rounding';
 import type { TransactionRecord, InventoryItemRecord } from '../db/types';
 
 interface TransactionFormProps {
@@ -91,8 +92,9 @@ export default function TransactionForm({
       // Validation 2: Parse and check for valid positive number
       const parsedAmount = parseFloat(amountStr);
       const scaledAmount = Math.round(parsedAmount * 100);
+      const roundedAmount = roundPrice(scaledAmount);
 
-      if (isNaN(scaledAmount) || scaledAmount <= 0) {
+      if (isNaN(roundedAmount) || roundedAmount <= 0) {
         throw new Error('Transaction amount must be a positive number.');
       }
 
@@ -109,7 +111,7 @@ export default function TransactionForm({
       if (transaction) {
         // Edit mode: update transaction
         await updateTransaction(transaction.id, {
-          amount: scaledAmount,
+          amount: roundedAmount,
           category,
           description: description.trim(),
           createdAt: transaction.createdAt,
@@ -119,7 +121,7 @@ export default function TransactionForm({
       } else {
         // Insert mode
         await insertTransaction({
-          amount: scaledAmount,
+          amount: roundedAmount,
           category,
           description: description.trim(),
           createdAt: new Date(),
@@ -145,6 +147,14 @@ export default function TransactionForm({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const categoryIcons: Record<TransactionCategory, typeof Scissors> = {
+    tailoring_income: Scissors,
+    clothing_income: Shirt,
+    personal_expense: Wallet,
+    tailoring_expense: Scissors,
+    clothing_overhead: Package,
   };
 
   const categoriesConfig = {
@@ -216,9 +226,10 @@ export default function TransactionForm({
             <span className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider">
               Select Category
             </span>
-            <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {categoriesConfig[type].map((cat) => {
                 const isSelected = category === cat.id;
+                const IconComponent = categoryIcons[cat.id];
                 return (
                   <button
                     key={cat.id}
@@ -227,18 +238,16 @@ export default function TransactionForm({
                       setCategory(cat.id);
                       if (cat.id !== 'clothing_income') setInventoryItemId(null);
                     }}
-                    className={`w-full text-left px-4 py-3 rounded-xl border-2 flex items-center justify-between min-h-[48px] transition-all cursor-pointer ${
+                    className={`aspect-square rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer min-h-[100px] ${
                       isSelected
                         ? 'bg-purple-100 border-black text-black font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                         : 'bg-white border-black text-slate-800 hover:bg-slate-50 active:translate-x-[1px] active:translate-y-[1px]'
                     }`}
                   >
-                    <span className="text-xs sm:text-sm font-sans">{cat.label}</span>
-                    {isSelected && (
-                      <span className="w-5 h-5 bg-purple-600 text-white rounded-full border-2 border-black flex items-center justify-center shrink-0 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
-                        <Check className="w-3.5 h-3.5 stroke-[3.5px]" />
-                      </span>
-                    )}
+                    <IconComponent className={`w-10 h-10 ${isSelected ? 'text-purple-700' : 'text-slate-600'}`} />
+                    <span className="text-[10px] font-sans font-bold text-center leading-tight px-1">
+                      {cat.label}
+                    </span>
                   </button>
                 );
               })}

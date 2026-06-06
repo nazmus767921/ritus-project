@@ -29,6 +29,7 @@ export interface InventoryItemRecord {
   shipmentId: number | null;
   brand: string;
   quantity: number;
+  initialQuantity: number;
   wholesaleCost: number;
   trueCost: number;
 }

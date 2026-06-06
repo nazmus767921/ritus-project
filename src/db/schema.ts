@@ -36,6 +36,7 @@ export const inventoryItems = sqliteTable('inventory_items', {
   shipmentId: integer('shipment_id').references(() => shipments.id, { onDelete: 'cascade' }),
   brand: text('brand').notNull(),
   quantity: integer('quantity').notNull(), // Remaining stock count (must be >= 0)
+  initialQuantity: integer('initial_quantity').notNull(), // Original shipment quantity (never changes)
   wholesaleCost: integer('wholesale_cost').notNull(), // Scaled integer (Taka * 100)
   trueCost: integer('true_cost').notNull() // Calculated: wholesaleCost + proportional courier fee (Scaled integer)
 });

@@ -96,6 +96,14 @@ export async function initDb() {
     // Ignore error if column already exists
   }
 
+  // Migrate schema for inventory_items table additions
+  try {
+    await sqlite3.exec(dbPtr, `ALTER TABLE inventory_items ADD COLUMN initial_quantity INTEGER NOT NULL DEFAULT 0;`);
+    await sqlite3.exec(dbPtr, `UPDATE inventory_items SET initial_quantity = quantity;`);
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
   // Create settings table
   await sqlite3.exec(dbPtr, `
     CREATE TABLE IF NOT EXISTS settings (

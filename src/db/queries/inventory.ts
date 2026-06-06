@@ -1,6 +1,7 @@
 import { desc, eq } from 'drizzle-orm';
 import { getDb } from '../client';
 import { inventoryItems, transactions } from '../schema';
+import { roundPrice } from '../../lib/math/rounding';
 import type { InventoryItemRecord } from '../types';
 
 /**
@@ -38,7 +39,7 @@ export async function executeProductSale(itemId: number, retailPrice: number, no
 
     // 4. Log sales revenue transaction with linked inventoryItemId
     await tx.insert(transactions).values({
-      amount: retailPrice,
+      amount: roundPrice(retailPrice),
       category: 'clothing_income',
       description,
       createdAt: new Date(),
