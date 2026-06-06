@@ -4,6 +4,7 @@ import { calculatePreferredPrice } from '../lib/math/pricing';
 import { roundPrice, formatCurrency } from '../lib/math/rounding';
 import BottomSheet from './BottomSheet';
 import SystemAlert from './SystemAlert';
+import QuantityInput from './QuantityInput';
 
 interface SellSheetProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
   const [retailPriceStr, setRetailPriceStr] = useState('');
   const [note, setNote] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [quantity, setQuantity] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
 
@@ -31,6 +33,7 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
   useEffect(() => {
     if (isOpen && item) {
       setRetailPriceStr(`${Math.round(preferredPrice / 100)}`);
+      setQuantity(1);
     } else {
       setRetailPriceStr('');
     }
@@ -52,19 +55,20 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
         throw new Error('Retail sale price must be a positive number.');
       }
 
-      if (item && item.quantity <= 0) {
-        throw new Error('This item is out of stock.');
-      }
-
       if (!item) {
         throw new Error('No item selected.');
       }
 
-      await executeProductSale(item.id, roundedPrice, note, customerName);
+      if (item.quantity < quantity) {
+        throw new Error(`Insufficient stock: ${item.quantity} available, ${quantity} requested.`);
+      }
+
+      await executeProductSale(item.id, roundedPrice * quantity, note, customerName, quantity);
 
       setRetailPriceStr('');
       setNote('');
       setCustomerName('');
+      setQuantity(1);
       onSave();
       onClose();
     } catch (err: unknown) {
@@ -119,6 +123,11 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
               <span className="text-purple-600 font-extrabold">{formatCurrency(preferredPrice)}</span>
             </div>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-sans font-bold text-slate-700 uppercase">Quantity</label>
+          <QuantityInput value={quantity} onChange={setQuantity} min={1} max={item?.quantity} />
         </div>
 
         <div className="flex flex-col gap-1.5">

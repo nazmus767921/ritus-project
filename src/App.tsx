@@ -18,7 +18,6 @@ import SellSheet from './components/SellSheet';
 import ReportsView from './components/ReportsView';
 import StockView from './components/StockView';
 
-import { calculatePreferredPrice } from './lib/math/pricing';
 import { formatCurrency } from './lib/math/rounding';
 import PinScreen, { hasPinEnabled, setStoredPin } from './components/PinScreen';
 import { 
@@ -573,6 +572,7 @@ function App() {
                               </div>
                               <p className="text-slate-600 font-mono text-[10px]">
                                 {new Date(record.createdAt).toLocaleString()}
+                                {record.category === 'clothing_income' && <span className="ml-2 font-bold">Qty: {record.quantity ?? 1}</span>}
                                 {record.notes && <span className="text-slate-400 ml-2">— {record.notes}</span>}
                               </p>
                             </div>

@@ -15,27 +15,23 @@ export async function getInventoryItems(): Promise<InventoryItemRecord[]> {
 /**
  * Executes a product sale transaction: verifies stock, decrements quantity, and logs clothing income.
  */
-export async function executeProductSale(itemId: number, retailPrice: number, note?: string, customerName?: string) {
+export async function executeProductSale(itemId: number, retailPrice: number, note?: string, customerName?: string, quantity: number = 1) {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
-    // 1. Fetch current stock state
     const [item] = await tx.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
     if (!item) {
       throw new Error("Product item not found.");
     }
-    if (item.quantity <= 0) {
-      throw new Error("Item is out of stock. Cannot execute sale.");
+    if (item.quantity < quantity) {
+      throw new Error(`Insufficient stock: ${item.quantity} available, ${quantity} requested.`);
     }
 
-    // 2. Decrement remaining quantity by 1
     await tx.update(inventoryItems)
-      .set({ quantity: item.quantity - 1 })
+      .set({ quantity: item.quantity - quantity })
       .where(eq(inventoryItems.id, itemId));
 
-    // 3. Build description with item details
     const description = `Sale: ${item.brand} (Cost: ${formatCurrency(item.trueCost)})`;
 
-    // 4. Log sales revenue transaction with linked inventoryItemId
     await tx.insert(transactions).values({
       amount: roundPrice(retailPrice),
       category: 'clothing_income',
@@ -44,7 +40,8 @@ export async function executeProductSale(itemId: number, retailPrice: number, no
       notes: note || null,
       createdAt: new Date(),
       status: 'active',
-      inventoryItemId: itemId
+      inventoryItemId: itemId,
+      quantity
     });
   });
 }

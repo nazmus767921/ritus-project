@@ -11,9 +11,11 @@ export async function insertTransaction(data: {
   notes?: string | null;
   createdAt: Date;
   inventoryItemId?: number | null;
+  quantity?: number;
 }): Promise<TransactionRecord> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
+    const qty = data.quantity ?? 1;
     const [newTx] = await tx.insert(transactions).values({
       amount: data.amount,
       category: data.category,
@@ -22,20 +24,20 @@ export async function insertTransaction(data: {
       notes: data.notes || null,
       createdAt: data.createdAt,
       status: 'active',
-      inventoryItemId: data.inventoryItemId || null
+      inventoryItemId: data.inventoryItemId || null,
+      quantity: qty
     }).returning();
 
-    // If active clothing income and inventory item is linked, decrement stock by 1
     if (data.category === 'clothing_income' && data.inventoryItemId) {
       const [item] = await tx.select().from(inventoryItems).where(eq(inventoryItems.id, data.inventoryItemId));
       if (!item) {
         throw new Error("Linked product item not found.");
       }
-      if (item.quantity <= 0) {
-        throw new Error("Linked item is out of stock.");
+      if (item.quantity < qty) {
+        throw new Error(`Insufficient stock: ${item.quantity} available, ${qty} requested.`);
       }
       await tx.update(inventoryItems)
-        .set({ quantity: item.quantity - 1 })
+        .set({ quantity: item.quantity - qty })
         .where(eq(inventoryItems.id, data.inventoryItemId));
     }
     return newTx;
@@ -58,6 +60,7 @@ export async function updateTransaction(
     createdAt: Date;
     status: TransactionRecord['status'];
     inventoryItemId?: number | null;
+    quantity?: number;
   }
 ): Promise<void> {
   const db = getDb();
@@ -67,60 +70,67 @@ export async function updateTransaction(
       throw new Error("Transaction not found.");
     }
 
+    const oldQty = oldTx.quantity ?? 1;
+    const newQty = data.quantity ?? 1;
     const wasActiveSale = oldTx.category === 'clothing_income' && oldTx.status === 'active' && oldTx.inventoryItemId;
     const isActiveSaleNow = data.category === 'clothing_income' && data.status === 'active' && data.inventoryItemId;
 
     if (wasActiveSale && isActiveSaleNow) {
-      // If the inventory item changed, restore stock to the old one and decrement the new one
-      if (oldTx.inventoryItemId !== data.inventoryItemId) {
+      if (oldTx.inventoryItemId === data.inventoryItemId) {
+        // Same item: adjust quantity difference
+        const diff = newQty - oldQty;
+        if (diff !== 0 && data.inventoryItemId) {
+          const [item] = await tx.select().from(inventoryItems).where(eq(inventoryItems.id, data.inventoryItemId));
+          if (!item) throw new Error("Linked product item not found.");
+          const newStockQty = item.quantity - diff;
+          if (newStockQty < 0) throw new Error("Insufficient stock for the new quantity.");
+          await tx.update(inventoryItems)
+            .set({ quantity: newStockQty })
+            .where(eq(inventoryItems.id, data.inventoryItemId));
+        }
+      } else {
+        // Different item: restore old, decrement new
         if (oldTx.inventoryItemId) {
           const [oldItem] = await tx.select().from(inventoryItems).where(eq(inventoryItems.id, oldTx.inventoryItemId));
           if (oldItem) {
             await tx.update(inventoryItems)
-              .set({ quantity: oldItem.quantity + 1 })
+              .set({ quantity: oldItem.quantity + oldQty })
               .where(eq(inventoryItems.id, oldTx.inventoryItemId));
           }
         }
         if (data.inventoryItemId) {
           const [newItem] = await tx.select().from(inventoryItems).where(eq(inventoryItems.id, data.inventoryItemId));
-          if (!newItem) {
-            throw new Error("New linked product item not found.");
-          }
-          if (newItem.quantity <= 0) {
-            throw new Error("New linked item is out of stock.");
-          }
+          if (!newItem) throw new Error("New linked product item not found.");
+          const newQ = newItem.quantity - newQty;
+          if (newQ < 0) throw new Error("Insufficient stock for the new quantity.");
           await tx.update(inventoryItems)
-            .set({ quantity: newItem.quantity - 1 })
+            .set({ quantity: newQ })
             .where(eq(inventoryItems.id, data.inventoryItemId));
         }
       }
     } else if (wasActiveSale && !isActiveSaleNow) {
-      // It was an active sale, but no longer is. Restore the stock.
+      // Restore old quantity
       if (oldTx.inventoryItemId) {
         const [oldItem] = await tx.select().from(inventoryItems).where(eq(inventoryItems.id, oldTx.inventoryItemId));
         if (oldItem) {
           await tx.update(inventoryItems)
-            .set({ quantity: oldItem.quantity + 1 })
+            .set({ quantity: oldItem.quantity + oldQty })
             .where(eq(inventoryItems.id, oldTx.inventoryItemId));
         }
       }
     } else if (!wasActiveSale && isActiveSaleNow) {
-      // It wasn't an active sale, but now it is. Decrement stock.
+      // Decrement new quantity
       if (data.inventoryItemId) {
         const [newItem] = await tx.select().from(inventoryItems).where(eq(inventoryItems.id, data.inventoryItemId));
-        if (!newItem) {
-          throw new Error("Linked product item not found.");
-        }
-        if (newItem.quantity <= 0) {
-          throw new Error("Linked item is out of stock.");
-        }
+        if (!newItem) throw new Error("Linked product item not found.");
+        const newQ = newItem.quantity - newQty;
+        if (newQ < 0) throw new Error("Insufficient stock for the new quantity.");
         await tx.update(inventoryItems)
-          .set({ quantity: newItem.quantity - 1 })
+          .set({ quantity: newQ })
           .where(eq(inventoryItems.id, data.inventoryItemId));
       }
     }
 
-    // Update the transaction
     return await tx.update(transactions)
       .set({
         amount: data.amount,
@@ -130,7 +140,8 @@ export async function updateTransaction(
         notes: data.notes ?? null,
         createdAt: data.createdAt,
         status: data.status,
-        inventoryItemId: data.inventoryItemId || null
+        inventoryItemId: data.inventoryItemId || null,
+        quantity: newQty
       })
       .where(eq(transactions.id, id));
   });
@@ -144,12 +155,12 @@ export async function deleteTransaction(id: number): Promise<void> {
       throw new Error("Transaction not found.");
     }
 
-    // If it was an active sale, restore stock count
     if (oldTx.category === 'clothing_income' && oldTx.status === 'active' && oldTx.inventoryItemId) {
+      const qty = oldTx.quantity ?? 1;
       const [item] = await tx.select().from(inventoryItems).where(eq(inventoryItems.id, oldTx.inventoryItemId));
       if (item) {
         await tx.update(inventoryItems)
-          .set({ quantity: item.quantity + 1 })
+          .set({ quantity: item.quantity + qty })
           .where(eq(inventoryItems.id, oldTx.inventoryItemId));
       }
     }
@@ -174,16 +185,14 @@ export async function refundTransaction(id: number): Promise<void> {
       .set({ status: 'refunded' })
       .where(eq(transactions.id, id));
 
-    // If it is linked to an inventory item, restore stock and reverse courier fee allocation
     if (oldTx.category === 'clothing_income' && oldTx.inventoryItemId) {
+      const qty = oldTx.quantity ?? 1;
       const [item] = await tx.select().from(inventoryItems).where(eq(inventoryItems.id, oldTx.inventoryItemId));
       if (item) {
-        // Restore stock
         await tx.update(inventoryItems)
-          .set({ quantity: item.quantity + 1 })
+          .set({ quantity: item.quantity + qty })
           .where(eq(inventoryItems.id, oldTx.inventoryItemId));
 
-        // Reverse the proportional courier fee that was allocated to this item
         const courierFeePerUnit = item.trueCost - item.wholesaleCost;
         if (courierFeePerUnit > 0) {
           await tx.insert(transactions).values({

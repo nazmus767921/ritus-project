@@ -33,7 +33,7 @@ export default function ReportsView({ transactions, inventoryItems, targetMarkup
     .filter(t => t.category === 'clothing_income' && t.inventoryItemId != null)
     .reduce((sum, t) => {
       const item = itemMap.get(t.inventoryItemId!);
-      return sum + (item ? item.trueCost : 0);
+      return sum + (item ? item.trueCost * (t.quantity ?? 1) : 0);
     }, 0);
 
   const actualMarginVal = calculateProfitMargin(clothingRevenue, clothingCost);
@@ -44,8 +44,8 @@ export default function ReportsView({ transactions, inventoryItems, targetMarkup
     if (!t.inventoryItemId) return true;
     const item = itemMap.get(t.inventoryItemId);
     if (!item) return true;
-    const targetPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
-    return t.amount >= targetPrice;
+    const targetUnitPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
+    return t.amount >= targetUnitPrice * (t.quantity ?? 1);
   });
   const meetRate = clothingSales.length > 0 ? (salesMeetingTarget.length / clothingSales.length) * 100 : 100;
 
@@ -69,7 +69,7 @@ export default function ReportsView({ transactions, inventoryItems, targetMarkup
       if (t.category === 'clothing_income') {
         monthlyData[monthKey].clothingRev += t.amount;
         if (item) {
-          monthlyData[monthKey].clothingCost += item.trueCost;
+          monthlyData[monthKey].clothingCost += item.trueCost * (t.quantity ?? 1);
         }
       }
     } else if (t.category === 'tailoring_expense' || t.category === 'clothing_overhead') {
