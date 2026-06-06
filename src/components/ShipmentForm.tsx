@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronRight, Edit2, Check, Layers, Tag, Crosshair } from 'lucide-react';
 import { calculateOptionA } from '../lib/math/allocator';
+import { formatCurrency } from '../lib/math/rounding';
 import { createShipmentTransaction, updateShipment } from '../db/queries/shipments';
 import type { ShipmentWithItems } from '../db/types';
 import BottomSheet from './BottomSheet';
@@ -32,7 +33,7 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
   useEffect(() => {
     if (isOpen) {
       if (shipment) {
-        setCourierFeeStr((shipment.courierFee / 100).toFixed(2));
+        setCourierFeeStr(`${Math.round(shipment.courierFee / 100)}`);
         const date = new Date(shipment.deliveryDate);
         const yyyy = date.getFullYear();
         const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -42,7 +43,7 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
           id: item.id,
           brand: item.brand,
           quantityStr: item.quantity.toString(),
-          wholesaleCostStr: (item.wholesaleCost / 100).toFixed(2)
+          wholesaleCostStr: `${Math.round(item.wholesaleCost / 100)}`
         })));
         setExpandedIndex(0);
       } else {
@@ -204,13 +205,13 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
         {!isNaN(cost) && cost > 0 && (
           <div className="bg-yellow-200 rounded-lg border-2 border-black px-2 py-1.5 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
             <Tag className="w-3 h-3 text-black shrink-0" />
-            <span className="text-black font-display text-xs font-extrabold leading-none">৳{cost.toFixed(0)}</span>
+            <span className="text-black font-display text-xs font-extrabold leading-none">{formatCurrency(Math.round(cost * 100))}</span>
           </div>
         )}
         {trueCost !== undefined && trueCost !== null && trueCost > 0 && (
           <div className="bg-green-200 rounded-lg border-2 border-black px-2 py-1.5 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
             <Crosshair className="w-3 h-3 text-black shrink-0" />
-            <span className="text-black font-display text-xs font-extrabold leading-none">৳{(trueCost / 100).toFixed(0)}</span>
+            <span className="text-black font-display text-xs font-extrabold leading-none">{formatCurrency(trueCost)}</span>
           </div>
         )}
       </div>
@@ -257,7 +258,7 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
         {previewTrueCost !== undefined && previewTrueCost !== null && (
           <div className="bg-slate-50 rounded-lg border-2 border-black p-2 flex justify-between items-center text-xs">
             <span className="text-slate-700 font-sans font-bold uppercase tracking-wider text-[9px]">Per-Unit True Cost</span>
-            <span className="font-mono font-bold text-black">৳{(previewTrueCost / 100).toFixed(2)}</span>
+            <span className="font-mono font-bold text-black">{formatCurrency(previewTrueCost)}</span>
           </div>
         )}
       </div>
@@ -413,12 +414,12 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
                 </div>
                 <div>
                   <span className="text-slate-500 block font-sans font-bold text-[8px] uppercase">Wholesale</span>
-                  <span className="text-black font-extrabold">৳{isNaN(cost) ? '-' : cost.toFixed(2)}</span>
+                  <span className="text-black font-extrabold">{isNaN(cost) ? '-' : formatCurrency(Math.round(cost * 100))}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block font-sans font-bold text-[8px] uppercase">True Cost</span>
                   <span className="text-green-600 font-extrabold">
-                    {trueCost !== undefined && trueCost !== null ? `৳${(trueCost / 100).toFixed(2)}` : '-'}
+                    {trueCost !== undefined && trueCost !== null ? formatCurrency(trueCost) : '-'}
                   </span>
                 </div>
               </div>
@@ -456,11 +457,11 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
             </div>
             <div className="flex justify-between items-center py-2 border-b-2 border-black/30">
               <span className="text-xs font-sans font-bold text-slate-700 uppercase">Total Wholesale Price</span>
-              <span className="font-display text-lg font-extrabold text-black">৳{totalWholesalePrice.toFixed(2)}</span>
+              <span className="font-display text-lg font-extrabold text-black">{formatCurrency(Math.round(totalWholesalePrice * 100))}</span>
             </div>
             <div className="flex justify-between items-center py-2">
               <span className="text-xs font-sans font-bold text-slate-700 uppercase">Courier Charge</span>
-              <span className="font-display text-lg font-extrabold text-black">৳{parseFloat(courierFeeStr || '0').toFixed(2)}</span>
+              <span className="font-display text-lg font-extrabold text-black">{formatCurrency(Math.round(parseFloat(courierFeeStr || '0') * 100))}</span>
             </div>
           </div>
         </div>
