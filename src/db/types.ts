@@ -12,6 +12,8 @@ export interface TransactionRecord {
   amount: number;
   category: TransactionCategory;
   description: string;
+  customerName: string | null;
+  notes: string | null;
   createdAt: Date;
   status: TransactionStatus;
   inventoryItemId: number | null;
@@ -44,6 +46,9 @@ export interface DashboardMetrics {
   clothingNet: number;
   totalBusinessProfit: number;
   safetyPocket: number;
+  totalAvailableStock: number;
+  totalSoldQuantity: number;
+  totalRemainingStock: number;
 }
 
 export interface ShipmentWithItems extends ShipmentRecord {

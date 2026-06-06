@@ -7,6 +7,8 @@ export async function insertTransaction(data: {
   amount: number;
   category: TransactionCategory;
   description: string;
+  customerName?: string | null;
+  notes?: string | null;
   createdAt: Date;
   inventoryItemId?: number | null;
 }): Promise<TransactionRecord> {
@@ -16,6 +18,8 @@ export async function insertTransaction(data: {
       amount: data.amount,
       category: data.category,
       description: data.description,
+      customerName: data.customerName || null,
+      notes: data.notes || null,
       createdAt: data.createdAt,
       status: 'active',
       inventoryItemId: data.inventoryItemId || null
@@ -49,6 +53,8 @@ export async function updateTransaction(
     amount: number;
     category: TransactionCategory;
     description: string;
+    customerName?: string | null;
+    notes?: string | null;
     createdAt: Date;
     status: TransactionRecord['status'];
     inventoryItemId?: number | null;
@@ -120,6 +126,8 @@ export async function updateTransaction(
         amount: data.amount,
         category: data.category,
         description: data.description,
+        customerName: data.customerName ?? null,
+        notes: data.notes ?? null,
         createdAt: data.createdAt,
         status: data.status,
         inventoryItemId: data.inventoryItemId || null

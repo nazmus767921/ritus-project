@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, Edit2, Check, Layers, Tag, Crosshair } from 'lucide-react';
 import { calculateOptionA } from '../lib/math/allocator';
 import { createShipmentTransaction, updateShipment } from '../db/queries/shipments';
 import type { ShipmentWithItems } from '../db/types';
+import BottomSheet from './BottomSheet';
+import SystemAlert from './SystemAlert';
 
 interface ShipmentFormProps {
   isOpen: boolean;
@@ -22,29 +24,27 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
   const [courierFeeStr, setCourierFeeStr] = useState('0.00');
   const [deliveryDateStr, setDeliveryDateStr] = useState('');
   const [lines, setLines] = useState<FormLine[]>([{ brand: '', quantityStr: '', wholesaleCostStr: '' }]);
+  const [expandedIndex, setExpandedIndex] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // iOS-style Alert modal state
+  const [view, setView] = useState<'base' | 'review' | 'confirm'>('base');
   const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
 
-  // Load shipment if editing, otherwise set defaults
   useEffect(() => {
     if (isOpen) {
       if (shipment) {
         setCourierFeeStr((shipment.courierFee / 100).toFixed(2));
-        
         const date = new Date(shipment.deliveryDate);
         const yyyy = date.getFullYear();
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const dd = String(date.getDate()).padStart(2, '0');
         setDeliveryDateStr(`${yyyy}-${mm}-${dd}`);
-        
         setLines(shipment.items.map((item) => ({
           id: item.id,
           brand: item.brand,
           quantityStr: item.quantity.toString(),
           wholesaleCostStr: (item.wholesaleCost / 100).toFixed(2)
         })));
+        setExpandedIndex(0);
       } else {
         setCourierFeeStr('0.00');
         const today = new Date();
@@ -53,16 +53,16 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
         const dd = String(today.getDate()).padStart(2, '0');
         setDeliveryDateStr(`${yyyy}-${mm}-${dd}`);
         setLines([{ brand: '', quantityStr: '', wholesaleCostStr: '' }]);
+        setExpandedIndex(0);
       }
+      setView('base');
     }
   }, [isOpen, shipment]);
 
-  // Real-time calculation of Option A True Cost per item row
   const liveTrueCosts = useMemo(() => {
     const feePoisha = Math.round(parseFloat(courierFeeStr) * 100);
     if (isNaN(feePoisha) || feePoisha < 0) return null;
 
-    // Sum the unit counts across all items
     const parsedItems = lines.map(line => {
       const qty = parseInt(line.quantityStr);
       const cost = Math.round(parseFloat(line.wholesaleCostStr) * 100);
@@ -82,37 +82,51 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
     }
   }, [courierFeeStr, lines]);
 
-  if (!isOpen) return null;
+  const allRowsValid = useMemo(() => {
+    return lines.every(line => line.brand.trim() && parseInt(line.quantityStr) > 0 && parseFloat(line.wholesaleCostStr) > 0);
+  }, [lines]);
+
+  const totalUniqueItems = lines.filter(l => l.brand.trim()).length;
+  const totalQuantity = lines.reduce((sum, l) => sum + (parseInt(l.quantityStr) || 0), 0);
+  const totalWholesalePrice = useMemo(() => {
+    return lines.reduce((sum, l) => {
+      const qty = parseInt(l.quantityStr);
+      const cost = parseFloat(l.wholesaleCostStr);
+      if (isNaN(qty) || isNaN(cost)) return sum;
+      return sum + qty * cost;
+    }, 0);
+  }, [lines]);
 
   const handleAddLine = () => {
-    setLines([{ brand: '', quantityStr: '', wholesaleCostStr: '' }, ...lines]);
+    const newIndex = lines.length;
+    setLines([...lines, { brand: '', quantityStr: '', wholesaleCostStr: '' }]);
+    setExpandedIndex(newIndex);
   };
 
   const handleRemoveLine = (index: number) => {
     if (lines.length === 1) return;
-    setLines(lines.filter((_, i) => i !== index));
+    const newLines = lines.filter((_, i) => i !== index);
+    setLines(newLines);
+    if (expandedIndex >= newLines.length) {
+      setExpandedIndex(Math.max(0, newLines.length - 1));
+    } else if (expandedIndex === index) {
+      setExpandedIndex(Math.min(index, newLines.length - 1));
+    }
   };
 
   const handleLineChange = (index: number, field: keyof FormLine, value: string) => {
     const newLines = [...lines];
-    newLines[index] = {
-      ...newLines[index],
-      [field]: value
-    };
+    newLines[index] = { ...newLines[index], [field]: value };
     setLines(newLines);
   };
 
   const handleSave = async () => {
     try {
       setIsSubmitting(true);
-
-      // 1. Validate Courier Fee
       const parsedFee = Math.round(parseFloat(courierFeeStr) * 100);
       if (isNaN(parsedFee) || parsedFee < 0) {
         throw new Error("Courier fee must be a valid non-negative number.");
       }
-
-      // 2. Validate Delivery Date
       if (!deliveryDateStr) {
         throw new Error("Delivery date cannot be blank.");
       }
@@ -120,8 +134,6 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
       if (isNaN(deliveryDate.getTime())) {
         throw new Error("Invalid delivery date.");
       }
-
-      // 3. Validate Inventory Line Items
       if (lines.length === 0) {
         throw new Error("Must include at least one inventory item.");
       }
@@ -131,60 +143,37 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
         if (!brandClean) {
           throw new Error(`Row ${index + 1}: Brand name cannot be empty.`);
         }
-
-    const qty = Math.round(parseFloat(line.quantityStr));
-      if (isNaN(qty) || qty <= 0) {
-        throw new Error(`Row ${index + 1}: Quantity must be a positive number.`);
-      }
-
+        const qty = Math.round(parseFloat(line.quantityStr));
+        if (isNaN(qty) || qty <= 0) {
+          throw new Error(`Row ${index + 1}: Quantity must be a positive number.`);
+        }
         const cost = Math.round(parseFloat(line.wholesaleCostStr) * 100);
         if (isNaN(cost) || cost <= 0) {
           throw new Error(`Row ${index + 1}: Wholesale cost must be positive.`);
         }
-
-        return {
-          id: line.id,
-          brand: brandClean,
-          quantity: qty,
-          wholesaleCost: cost,
-          trueCost: 0
-        };
+        return { id: line.id, brand: brandClean, quantity: qty, wholesaleCost: cost, trueCost: 0 };
       });
 
-      // 4. Run allocator to set trueCosts
       const feePoisha = Math.round(parseFloat(courierFeeStr) * 100);
       const allocatorInput = validatedItems.map(item => ({
         quantity: item.quantity,
         wholesaleCost: item.wholesaleCost
       }));
-      
       const trueCosts = calculateOptionA(feePoisha, allocatorInput);
-      
       const itemsToInsert = validatedItems.map((item, idx) => ({
         ...item,
         trueCost: trueCosts[idx]
       }));
 
-      // 5. Execute DB Transaction
       if (shipment) {
-        await updateShipment(
-          shipment.id,
-          parsedFee,
-          deliveryDate,
-          itemsToInsert
-        );
+        await updateShipment(shipment.id, parsedFee, deliveryDate, itemsToInsert);
       } else {
-        await createShipmentTransaction(
-          parsedFee,
-          deliveryDate,
-          itemsToInsert
-        );
+        await createShipmentTransaction(parsedFee, deliveryDate, itemsToInsert);
       }
 
-      // Reset Form State
       setCourierFeeStr('0.00');
       setLines([{ brand: '', quantityStr: '', wholesaleCostStr: '' }]);
-      
+      setView('base');
       onSave();
       onClose();
     } catch (err: unknown) {
@@ -197,208 +186,289 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4 transition-opacity duration-300">
-      {/* Tap outside to dismiss */}
-      <div className="absolute inset-0" onClick={onClose} />
+  const renderCollapsedRow = (line: FormLine, index: number) => {
+    const trueCost = liveTrueCosts?.[index];
+    const qty = parseInt(line.quantityStr);
+    const cost = parseFloat(line.wholesaleCostStr);
+    const hasAnyData = (!isNaN(qty) && qty > 0) || (!isNaN(cost) && cost > 0);
+    if (!hasAnyData && (trueCost === undefined || trueCost === null || trueCost === 0)) return null;
 
-      {/* Centered Retro Dialog Modal */}
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl border-[3px] border-black shadow-neobrutal overflow-hidden animate-scale-up flex flex-col max-h-[90vh]">
-        
-        {/* Retro Dialog Title Bar */}
-        <div className="bg-slate-200 border-b-[3px] border-black px-4 py-2.5 flex items-center justify-between select-none">
-          <span className="font-display font-extrabold text-sm uppercase text-black">
-            {shipment ? 'Edit_Shipment.exe' : 'Import_Shipment.exe'}
+    return (
+      <div className="flex items-center gap-2 py-1.5">
+        {!isNaN(qty) && qty > 0 && (
+          <div className="bg-blue-200 rounded-lg border-2 border-black px-2 py-1.5 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            <Layers className="w-3 h-3 text-black shrink-0" />
+            <span className="text-black font-display text-xs font-extrabold leading-none">{qty}</span>
+          </div>
+        )}
+        {!isNaN(cost) && cost > 0 && (
+          <div className="bg-yellow-200 rounded-lg border-2 border-black px-2 py-1.5 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            <Tag className="w-3 h-3 text-black shrink-0" />
+            <span className="text-black font-display text-xs font-extrabold leading-none">৳{cost.toFixed(0)}</span>
+          </div>
+        )}
+        {trueCost !== undefined && trueCost !== null && trueCost > 0 && (
+          <div className="bg-green-200 rounded-lg border-2 border-black px-2 py-1.5 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            <Crosshair className="w-3 h-3 text-black shrink-0" />
+            <span className="text-black font-display text-xs font-extrabold leading-none">৳{(trueCost / 100).toFixed(0)}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderExpandedRow = (line: FormLine, index: number) => {
+    const previewTrueCost = liveTrueCosts?.[index];
+    return (
+      <div className="space-y-3 pt-2 border-t-2 border-black">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="flex flex-col gap-1">
+            <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Brand</label>
+            <input
+              type="text"
+              placeholder="e.g. Zara"
+              value={line.brand}
+              onChange={(e) => handleLineChange(index, 'brand', e.target.value)}
+              className="bg-white border-2 border-black rounded-lg py-1.5 px-2.5 text-sm text-black focus:outline-none min-h-[38px] w-full"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Quantity</label>
+            <input
+              type="number"
+              placeholder="0"
+              value={line.quantityStr}
+              onChange={(e) => handleLineChange(index, 'quantityStr', e.target.value)}
+              className="bg-white border-2 border-black rounded-lg py-1.5 px-2.5 font-mono text-sm text-black focus:outline-none min-h-[38px] w-full"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Wholesale (৳)</label>
+            <input
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              value={line.wholesaleCostStr}
+              onChange={(e) => handleLineChange(index, 'wholesaleCostStr', e.target.value)}
+              className="bg-white border-2 border-black rounded-lg py-1.5 px-2.5 font-mono text-sm text-black focus:outline-none min-h-[38px] w-full"
+            />
+          </div>
+        </div>
+        {previewTrueCost !== undefined && previewTrueCost !== null && (
+          <div className="bg-slate-50 rounded-lg border-2 border-black p-2 flex justify-between items-center text-xs">
+            <span className="text-slate-700 font-sans font-bold uppercase tracking-wider text-[9px]">Per-Unit True Cost</span>
+            <span className="font-mono font-bold text-black">৳{(previewTrueCost / 100).toFixed(2)}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <SystemAlert config={alertConfig} onClose={() => setAlertConfig(null)} />
+
+      {/* Base bottom sheet */}
+      <BottomSheet
+        isOpen={isOpen && view === 'base'}
+        onClose={onClose}
+        title={shipment ? 'Edit Shipment' : 'Import Shipment'}
+        leftAction={{ label: 'Cancel', onClick: onClose }}
+        rightAction={{ label: 'Review', onClick: () => setView('review'), disabled: !allRowsValid }}
+      >
+        <div className="bg-slate-50 rounded-xl border-2 border-black p-4 space-y-3 shadow-neobrutal-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-sans font-bold text-slate-700 uppercase">Courier Fee (৳)</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={courierFeeStr}
+                onChange={(e) => setCourierFeeStr(e.target.value)}
+                className="w-full bg-white border-2 border-black rounded-xl py-2 px-3 font-mono text-sm text-black focus:outline-none min-h-[40px]"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-sans font-bold text-slate-700 uppercase">Delivery Date</label>
+              <input
+                type="date"
+                value={deliveryDateStr}
+                onChange={(e) => setDeliveryDateStr(e.target.value)}
+                className="w-full bg-white border-2 border-black rounded-xl py-2 px-3 font-mono text-sm text-black focus:outline-none min-h-[40px]"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <span className="text-[10px] font-sans font-bold text-slate-700 uppercase tracking-wider">
+            Items ({lines.length})
           </span>
           <button
-            onClick={onClose}
-            className="w-7 h-7 bg-red-400 border-2 border-black rounded flex items-center justify-center text-black font-extrabold text-xs active:translate-x-[1px] active:translate-y-[1px] active:shadow-none hover:bg-red-500 cursor-pointer shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] transition-all"
-            disabled={isSubmitting}
-            aria-label="Close dialog"
+            type="button"
+            onClick={handleAddLine}
+            className="bg-purple-600 text-white border-2 border-black rounded-xl py-1.5 px-3 text-xs font-sans font-bold uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1 min-h-[36px] cursor-pointer transition-all"
           >
-            X
+            <Plus className="w-3.5 h-3.5 stroke-[3px]" /> Add Row
           </button>
         </div>
 
-        {/* Scrollable Form Body */}
-        <div className="p-5 space-y-6 overflow-y-auto">
-          
-          {/* Header Shipment Metadata Section */}
-          <div className="bg-slate-50 p-4 rounded-xl border-2 border-black space-y-4 shadow-neobrutal-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Courier Fee Field */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-sans font-bold text-slate-700 uppercase">Courier Fee (Taka)</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-black font-bold font-mono">৳</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={courierFeeStr}
-                    onChange={(e) => setCourierFeeStr(e.target.value)}
-                    className="w-full bg-white border-2 border-black rounded-xl py-2 pl-7 pr-3 font-mono text-sm text-black focus:outline-none min-h-[44px]"
-                  />
+        <div className="space-y-2">
+          {lines.map((line, index) => {
+            const isExpanded = expandedIndex === index;
+            return (
+              <div
+                key={index}
+                className={`bg-slate-50 rounded-xl border-2 border-black shadow-neobrutal-sm overflow-hidden transition-all ${
+                  isExpanded ? '' : 'hover:bg-yellow-50/30'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setExpandedIndex(isExpanded ? -1 : index)}
+                  className="w-full flex items-center gap-2 p-3 min-h-[44px] cursor-pointer text-left"
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4 shrink-0 text-purple-600 stroke-[3px]" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 shrink-0 text-slate-500 stroke-[3px]" />
+                    )}
+                    <span className="text-xs font-sans font-bold text-black">
+                      #{index + 1} {line.brand || <span className="text-slate-400 font-normal">New Item</span>}
+                    </span>
+                  </div>
+                  {lines.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleRemoveLine(index); }}
+                      className="text-red-500 hover:text-red-700 p-1 min-w-[28px] min-h-[28px] flex items-center justify-center cursor-pointer"
+                      aria-label={`Remove row ${index + 1}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </button>
+
+                {!isExpanded && (
+                  <div className="px-3 pb-3 pt-0 border-t-2 border-black">
+                    {renderCollapsedRow(line, index)}
+                  </div>
+                )}
+
+                {isExpanded && (
+                  <div className="px-3 pb-3 pt-0">
+                    {renderExpandedRow(line, index)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </BottomSheet>
+
+      {/* Review bottom sheet */}
+      <BottomSheet
+        isOpen={isOpen && view === 'review'}
+        onClose={onClose}
+        title="Verify Items"
+        leftAction={{ label: 'Back', onClick: () => setView('base') }}
+        rightAction={{ label: 'Confirm', onClick: () => setView('confirm'), disabled: !allRowsValid }}
+      >
+        {lines.map((line, index) => {
+          const trueCost = liveTrueCosts?.[index];
+          const qty = parseInt(line.quantityStr);
+          const cost = parseFloat(line.wholesaleCostStr);
+          return (
+            <div key={index} className="bg-slate-50 rounded-xl border-2 border-black p-4 shadow-neobrutal-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-sans font-bold text-black">#{index + 1} {line.brand}</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setExpandedIndex(index);
+                      setView('base');
+                    }}
+                    className="text-purple-600 hover:bg-purple-50 p-1.5 rounded-lg border border-purple-200 min-w-[32px] min-h-[32px] flex items-center justify-center cursor-pointer"
+                    title="Edit item"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  {lines.length > 1 && (
+                    <button
+                      onClick={() => handleRemoveLine(index)}
+                      className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg border border-red-200 min-w-[32px] min-h-[32px] flex items-center justify-center cursor-pointer"
+                      title="Remove item"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
-
-              {/* Delivery Date Field */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-sans font-bold text-slate-700 uppercase">Delivery Date</label>
-                <input
-                  type="date"
-                  value={deliveryDateStr}
-                  onChange={(e) => setDeliveryDateStr(e.target.value)}
-                  className="w-full bg-white border-2 border-black rounded-xl py-2 px-3 font-mono text-sm text-black focus:outline-none min-h-[44px]"
-                />
+              <div className="grid grid-cols-3 gap-2 text-[10px] font-mono">
+                <div>
+                  <span className="text-slate-500 block font-sans font-bold text-[8px] uppercase">Quantity</span>
+                  <span className="text-black font-extrabold">{isNaN(qty) ? '-' : qty}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block font-sans font-bold text-[8px] uppercase">Wholesale</span>
+                  <span className="text-black font-extrabold">৳{isNaN(cost) ? '-' : cost.toFixed(2)}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block font-sans font-bold text-[8px] uppercase">True Cost</span>
+                  <span className="text-green-600 font-extrabold">
+                    {trueCost !== undefined && trueCost !== null ? `৳${(trueCost / 100).toFixed(2)}` : '-'}
+                  </span>
+                </div>
               </div>
             </div>
+          );
+        })}
+      </BottomSheet>
+
+      {/* Final confirmation bottom sheet */}
+      <BottomSheet
+        isOpen={isOpen && view === 'confirm'}
+        onClose={onClose}
+        title="Final Approval"
+        leftAction={{ label: 'Back', onClick: () => setView('review') }}
+        rightAction={{ label: 'Import', onClick: handleSave, disabled: isSubmitting || !allRowsValid, primary: true }}
+        maxHeight="70vh"
+        zIndex={60}
+      >
+        <div className="bg-purple-50 rounded-2xl border-[3px] border-black p-5 space-y-4 shadow-neobrutal-sm">
+          <div className="text-center space-y-1">
+            <Check className="w-8 h-8 mx-auto text-purple-600 stroke-[3px]" />
+            <h3 className="text-sm font-display font-extrabold uppercase tracking-wider text-black">
+              Ready to Import
+            </h3>
           </div>
 
-          {/* Dynamic Array Items Section */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider">
-                Shipment Items
-              </span>
-              <button
-                type="button"
-                onClick={handleAddLine}
-                className="bg-purple-600 text-white border-2 border-black rounded-xl py-1.5 px-3 text-xs font-sans font-bold uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1 min-h-[38px] cursor-pointer transition-all"
-              >
-                <Plus className="w-4 h-4 stroke-[3px]" /> Add Row
-              </button>
+          <div className="border-t-2 border-black pt-4 space-y-3">
+            <div className="flex justify-between items-center py-2 border-b-2 border-black/30">
+              <span className="text-xs font-sans font-bold text-slate-700 uppercase">Unique Items</span>
+              <span className="font-display text-lg font-extrabold text-black">{totalUniqueItems}</span>
             </div>
-
-            {/* List of Item Input Card Rows */}
-            <div className="space-y-4">
-              {lines.map((line, index) => {
-                const previewTrueCost = liveTrueCosts?.[index];
-                return (
-                  <div key={index} className="bg-slate-50 rounded-xl border-2 border-black p-4 shadow-neobrutal-sm space-y-4 relative animate-fade-in">
-                    <div className="flex items-center justify-between border-b-2 border-black pb-2">
-                      <span className="text-xs font-sans font-bold text-black uppercase tracking-wider">Item Row #{index + 1}</span>
-                      {lines.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLine(index)}
-                          className="text-red-600 hover:text-red-800 p-2 -mr-2 min-w-[36px] min-h-[36px] flex items-center justify-center border-2 border-transparent hover:border-black rounded-lg active:bg-slate-200 transition-all cursor-pointer"
-                          title="Remove item row"
-                          aria-label={`Remove row ${index + 1}`}
-                        >
-                          <Trash2 className="w-4.5 h-4.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {/* Brand Name Input */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Brand</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Zara"
-                          value={line.brand}
-                          onChange={(e) => handleLineChange(index, 'brand', e.target.value)}
-                          className="bg-white border-2 border-black rounded-lg py-1.5 px-3 text-sm text-black focus:outline-none min-h-[40px]"
-                        />
-                      </div>
-
-                      {/* Quantity Input */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Quantity</label>
-                        <input
-                          type="number"
-                          placeholder="0"
-                          value={line.quantityStr}
-                          onChange={(e) => handleLineChange(index, 'quantityStr', e.target.value)}
-                          className="bg-white border-2 border-black rounded-lg py-1.5 px-3 font-mono text-sm text-black focus:outline-none min-h-[40px]"
-                        />
-                      </div>
-
-                      {/* Wholesale Cost Input */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Wholesale (৳)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={line.wholesaleCostStr}
-                          onChange={(e) => handleLineChange(index, 'wholesaleCostStr', e.target.value)}
-                          className="bg-white border-2 border-black rounded-lg py-1.5 px-3 font-mono text-sm text-black focus:outline-none min-h-[40px]"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Live Preview Row Cost Result */}
-                    <div className="bg-white rounded-lg border-2 border-black p-2.5 flex justify-between items-center text-xs">
-                      <span className="text-slate-700 font-sans font-bold uppercase tracking-wider text-[10px]">Per-Unit True Cost</span>
-                      <span className="font-mono font-bold text-black">
-                        {previewTrueCost !== undefined && previewTrueCost !== null ? (
-                          <>৳{(previewTrueCost / 100).toFixed(2)}</>
-                        ) : (
-                          <span className="text-slate-500 font-normal">Waiting for inputs...</span>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="flex justify-between items-center py-2 border-b-2 border-black/30">
+              <span className="text-xs font-sans font-bold text-slate-700 uppercase">Total Quantity</span>
+              <span className="font-display text-lg font-extrabold text-black">{totalQuantity}</span>
             </div>
-          </div>
-
-          {/* Form Actions Footer */}
-          <div className="flex gap-3 pt-4 border-t-2 border-black">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 bg-slate-100 hover:bg-slate-200 active:translate-x-[1px] active:translate-y-[1px] border-2 border-black rounded-xl py-2 px-4 text-xs font-sans font-bold uppercase tracking-wider text-black min-h-[44px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all cursor-pointer"
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 active:translate-x-[1px] active:translate-y-[1px] border-2 border-black rounded-xl py-2 px-4 text-xs font-sans font-bold uppercase tracking-wider text-white min-h-[44px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all cursor-pointer"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Saving...' : 'Save'}
-            </button>
-          </div>
-
-        </div>
-      </div>
-
-      {/* Retro System Alert Modal */}
-      {alertConfig && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-xs px-6 animate-fade-in">
-          <div className="bg-white rounded-2xl border-[3px] border-black shadow-neobrutal w-full max-w-[290px] overflow-hidden animate-scale-up">
-            <div className="bg-red-400 text-black border-b-[3px] border-black px-4 py-2 flex items-center justify-between select-none">
-              <span className="font-display font-extrabold text-xs uppercase">System_Alert.exe</span>
-              <button 
-                onClick={() => setAlertConfig(null)}
-                className="w-6 h-6 bg-white border-2 border-black rounded flex items-center justify-center text-black font-extrabold text-[9px] cursor-pointer"
-              >
-                X
-              </button>
+            <div className="flex justify-between items-center py-2 border-b-2 border-black/30">
+              <span className="text-xs font-sans font-bold text-slate-700 uppercase">Total Wholesale Price</span>
+              <span className="font-display text-lg font-extrabold text-black">৳{totalWholesalePrice.toFixed(2)}</span>
             </div>
-            <div className="p-4 space-y-2">
-              <h4 className="font-sans font-bold text-black text-sm uppercase tracking-wide">{alertConfig.title}</h4>
-              <p className="text-xs text-slate-800 font-medium leading-relaxed">{alertConfig.message}</p>
-            </div>
-            <div className="p-3 border-t-2 border-black flex justify-end bg-slate-50">
-              <button
-                type="button"
-                onClick={() => setAlertConfig(null)}
-                className="bg-white border-2 border-black rounded-lg py-1 px-4 text-xs font-sans font-bold uppercase tracking-wider text-black min-h-[36px] shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer"
-              >
-                OK
-              </button>
+            <div className="flex justify-between items-center py-2">
+              <span className="text-xs font-sans font-bold text-slate-700 uppercase">Courier Charge</span>
+              <span className="font-display text-lg font-extrabold text-black">৳{parseFloat(courierFeeStr || '0').toFixed(2)}</span>
             </div>
           </div>
         </div>
-      )}
-    </div>
+
+        <p className="text-[10px] text-slate-500 text-center font-sans font-medium">
+          Review the details above. Click Import to save all items to inventory.
+        </p>
+      </BottomSheet>
+    </>
   );
 }

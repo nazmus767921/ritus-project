@@ -32,16 +32,16 @@ export async function executeProductSale(itemId: number, retailPrice: number, no
       .set({ quantity: item.quantity - 1 })
       .where(eq(inventoryItems.id, itemId));
 
-    // 3. Build description with optional customer and note
-    let description = `Sale: ${item.brand} (Cost: ৳${(item.trueCost / 100).toFixed(2)})`;
-    if (customerName) description += ` — Customer: ${customerName}`;
-    if (note) description += ` — ${note}`;
+    // 3. Build description with item details
+    const description = `Sale: ${item.brand} (Cost: ৳${(item.trueCost / 100).toFixed(2)})`;
 
     // 4. Log sales revenue transaction with linked inventoryItemId
     await tx.insert(transactions).values({
       amount: roundPrice(retailPrice),
       category: 'clothing_income',
       description,
+      customerName: customerName || null,
+      notes: note || null,
       createdAt: new Date(),
       status: 'active',
       inventoryItemId: itemId

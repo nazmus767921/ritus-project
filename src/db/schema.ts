@@ -15,6 +15,8 @@ export const transactions = sqliteTable('transactions', {
     ]
   }).notNull(),
   description: text('description').notNull(),
+  customerName: text('customer_name'),
+  notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   status: text('status').default('active').notNull(), // 'active' | 'refunded'
   inventoryItemId: integer('inventory_item_id').references(() => inventoryItems.id, { onDelete: 'set null' })

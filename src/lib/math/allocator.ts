@@ -25,5 +25,9 @@ export function calculateOptionA(courierFee: number, items: InputItem[]): number
   // Calculate per-unit fee in scaled integer, rounded to the nearest integer
   const perUnitFee = Math.round(courierFee / totalUnits);
 
-  return items.map(item => roundPrice(item.wholesaleCost + perUnitFee));
+  return items.map(item => {
+    const raw = item.wholesaleCost + perUnitFee;
+    if (raw <= 0) return 0;
+    return roundPrice(raw);
+  });
 }
