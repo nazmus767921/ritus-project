@@ -1,10 +1,11 @@
 import { TrendingUp, DollarSign, Percent, BarChart3, AlertCircle } from 'lucide-react';
 import { calculatePreferredPrice, calculateProfitMargin } from '../lib/math/pricing';
+import type { TransactionRecord, InventoryItemRecord } from '../db/types';
 
 interface ReportsViewProps {
-  transactions: any[];
-  inventoryItems: any[];
-  targetMarkup: number; // e.g. 0.20
+  transactions: TransactionRecord[];
+  inventoryItems: InventoryItemRecord[];
+  targetMarkup: number;
 }
 
 export default function ReportsView({ transactions, inventoryItems, targetMarkup }: ReportsViewProps) {
@@ -34,9 +35,9 @@ export default function ReportsView({ transactions, inventoryItems, targetMarkup
     .reduce((sum, t) => sum + t.amount, 0);
 
   const clothingCost = activeTx
-    .filter(t => t.category === 'clothing_income' && t.inventoryItemId)
+    .filter(t => t.category === 'clothing_income' && t.inventoryItemId != null)
     .reduce((sum, t) => {
-      const item = itemMap.get(t.inventoryItemId);
+      const item = itemMap.get(t.inventoryItemId!);
       return sum + (item ? item.trueCost : 0);
     }, 0);
 

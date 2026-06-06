@@ -1,21 +1,11 @@
 import { Scissors, Shirt, TrendingUp, Wallet, Package, AlertCircle } from 'lucide-react';
 import { calculatePreferredPrice } from '../lib/math/pricing';
+import type { DashboardMetrics, InventoryItemRecord } from '../db/types';
 
 interface DashboardViewProps {
-  metrics: {
-    tailoringNet: number;
-    clothingNet: number;
-    totalBusinessProfit: number;
-    safetyPocket: number;
-  };
-  inventoryItems: {
-    id: number;
-    brand: string;
-    wholesaleCost: number;
-    trueCost: number;
-    quantity: number;
-  }[];
-  onSellClick: (item: any) => void;
+  metrics: DashboardMetrics;
+  inventoryItems: InventoryItemRecord[];
+  onSellClick: (item: InventoryItemRecord) => void;
   safetyPocketTarget: number;
   targetMarkup: number;
 }
@@ -65,12 +55,22 @@ export default function DashboardView({
     }
   ];
 
+  const getMascotImage = (mood: string): string => {
+    switch (mood) {
+      case 'happy': return '/tailor_cat_happy.png';
+      case 'neutral': return '/tailor_cat_neutral.png';
+      case 'sad': return '/tailor_cat_sad.png';
+      default: return '/tailor_cat.png';
+    }
+  };
+
   // Dynamic Tailor Cat Mascot logic
   const getMascotConfig = () => {
     // 1. Shelves are empty (no items logged)
     if (inventoryItems.length === 0) {
       return {
-        image: '/tailor_cat.png',
+        mood: 'sad',
+        image: getMascotImage('sad'),
         dialogue: "আরে আপু, ক্যাশবাক্স তো বসাইছি কিন্তু দোকান তো ফাঁকা! আজকা কি বউনি হইবো না? ইনভেন্টরি ট্যাবে গিয়া জলদি কিছু মাল আমদানি করো মিয়াও! 📦",
         title: "টেইলর বিলাই (বউনি নাই)"
       };
@@ -79,7 +79,8 @@ export default function DashboardView({
     // 2. Safety Pocket status checks
     if (metrics.safetyPocket < 0) {
       return {
-        image: '/tailor_cat.png',
+        mood: 'sad',
+        image: getMascotImage('sad'),
         dialogue: "হায় হায় আপু! লাভের গুড় পিঁপড়ায় খাইলো! পকেটে লাল বাতি জইলা গেছে, ফতুর দশা মিয়াও! নতুন মাল কেনা আপাতত বন্ধ রাখো! 🙀",
         title: "টেইলর বিলাই (লাল বাতি)"
       };
@@ -88,7 +89,8 @@ export default function DashboardView({
     // 3. Safety Pocket below target setting warning
     if (metrics.safetyPocket < safetyPocketTarget) {
       return {
-        image: '/tailor_cat.png',
+        mood: 'neutral',
+        image: getMascotImage('neutral'),
         dialogue: "আরে আপু, ক্যাশবাক্সের অবস্থা সুবিধার না! পকেটে লাল বাতি জইলা যাইবো মিয়াও! হাত একটু টান করো! 🐾",
         title: "টেইলর বিলাই (সাবধানী)"
       };
@@ -99,7 +101,8 @@ export default function DashboardView({
     const hasLowStock = lowStockItems.length > 0;
     if (hasLowStock) {
       return {
-        image: '/tailor_cat.png',
+        mood: 'neutral',
+        image: getMascotImage('neutral'),
         dialogue: "আরে মিয়াও! দোকানে কিছু মাল তো হাওয়া হইয়া ফক্কা! বউনি করার মতও কিছু নাই। কাস্টমার চিল্লাইবার আগে নতুন লট টানো! 🐾",
         title: "টেইলর বিলাই (মাল শেষ)"
       };
@@ -108,14 +111,16 @@ export default function DashboardView({
     // 5. Safety Pocket is high
     if (metrics.safetyPocket >= 500000) { // 5,000 Taka (500000 Poisha)
       return {
-        image: '/tailor_cat.png',
+        mood: 'happy',
+        image: getMascotImage('happy'),
         dialogue: "পুরা ক্যালাও আপু! ক্যাশবাক্সে কড়কড়ে টাকা রেডি! নতুন কাপ্তান বা লট আমদানির টাইম আইসা গেছে, কোপায় দাও মিয়াও! 🧵",
         title: "টেইলর বিলাই (ক্যালাও)"
       };
     }
 
     return {
-      image: '/tailor_cat.png',
+      mood: 'neutral',
+      image: getMascotImage('neutral'),
       dialogue: "মিয়াও! ক্যাশবাক্সের অবস্থা সুবিধার না আপু। হাত একটু টান করো, ব্যবসা পুরা লাল বাতি হইয়া যাইবো! 🐾",
       title: "টেইলর বিলাই (সাবধানী)"
     };

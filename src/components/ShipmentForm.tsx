@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { calculateOptionA } from '../lib/math/allocator';
 import { createShipmentTransaction, updateShipment } from '../db/queries/shipments';
+import type { ShipmentWithItems } from '../db/types';
 
 interface ShipmentFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: () => void;
-  shipment?: any | null;
+  shipment?: ShipmentWithItems | null;
 }
 
 interface FormLine {
@@ -38,7 +39,7 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
         const dd = String(date.getDate()).padStart(2, '0');
         setDeliveryDateStr(`${yyyy}-${mm}-${dd}`);
         
-        setLines(shipment.items.map((item: any) => ({
+        setLines(shipment.items.map((item) => ({
           id: item.id,
           brand: item.brand,
           quantityStr: item.quantity.toString(),
@@ -186,10 +187,10 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
       
       onSave();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setAlertConfig({
         title: 'Validation Error',
-        message: err.message || 'Please check your inputs and try again.',
+        message: err instanceof Error ? err.message : 'Please check your inputs and try again.',
       });
     } finally {
       setIsSubmitting(false);

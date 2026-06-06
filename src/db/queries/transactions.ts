@@ -1,14 +1,15 @@
 import { desc, eq } from 'drizzle-orm';
 import { getDb } from '../client';
 import { transactions, inventoryItems } from '../schema';
+import type { TransactionCategory, TransactionRecord } from '../types';
 
 export async function insertTransaction(data: {
   amount: number;
-  category: 'personal_expense' | 'tailoring_expense' | 'clothing_overhead' | 'tailoring_income' | 'clothing_income';
+  category: TransactionCategory;
   description: string;
   createdAt: Date;
   inventoryItemId?: number | null;
-}) {
+}): Promise<TransactionRecord> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
     const [newTx] = await tx.insert(transactions).values({
@@ -37,7 +38,7 @@ export async function insertTransaction(data: {
   });
 }
 
-export async function getTransactions() {
+export async function getTransactions(): Promise<TransactionRecord[]> {
   const db = getDb();
   return await db.select().from(transactions).orderBy(desc(transactions.createdAt));
 }
@@ -46,13 +47,13 @@ export async function updateTransaction(
   id: number,
   data: {
     amount: number;
-    category: 'personal_expense' | 'tailoring_expense' | 'clothing_overhead' | 'tailoring_income' | 'clothing_income';
+    category: TransactionCategory;
     description: string;
     createdAt: Date;
-    status: 'active' | 'refunded';
+    status: TransactionRecord['status'];
     inventoryItemId?: number | null;
   }
-) {
+): Promise<void> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
     const [oldTx] = await tx.select().from(transactions).where(eq(transactions.id, id));
@@ -127,7 +128,7 @@ export async function updateTransaction(
   });
 }
 
-export async function deleteTransaction(id: number) {
+export async function deleteTransaction(id: number): Promise<void> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
     const [oldTx] = await tx.select().from(transactions).where(eq(transactions.id, id));
@@ -149,7 +150,7 @@ export async function deleteTransaction(id: number) {
   });
 }
 
-export async function refundTransaction(id: number) {
+export async function refundTransaction(id: number): Promise<void> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
     const [oldTx] = await tx.select().from(transactions).where(eq(transactions.id, id));
@@ -165,13 +166,26 @@ export async function refundTransaction(id: number) {
       .set({ status: 'refunded' })
       .where(eq(transactions.id, id));
 
-    // If it is linked to an inventory item, restore stock
+    // If it is linked to an inventory item, restore stock and reverse courier fee allocation
     if (oldTx.category === 'clothing_income' && oldTx.inventoryItemId) {
       const [item] = await tx.select().from(inventoryItems).where(eq(inventoryItems.id, oldTx.inventoryItemId));
       if (item) {
+        // Restore stock
         await tx.update(inventoryItems)
           .set({ quantity: item.quantity + 1 })
           .where(eq(inventoryItems.id, oldTx.inventoryItemId));
+
+        // Reverse the proportional courier fee that was allocated to this item
+        const courierFeePerUnit = item.trueCost - item.wholesaleCost;
+        if (courierFeePerUnit > 0) {
+          await tx.insert(transactions).values({
+            amount: -courierFeePerUnit,
+            category: 'clothing_overhead',
+            description: `Refund courier fee reversal for transaction #${id}`,
+            createdAt: new Date(),
+            status: 'active'
+          });
+        }
       }
     }
   });
