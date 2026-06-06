@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, Package } from 'lucide-react';
 import { calculatePreferredPrice } from '../lib/math/pricing';
 import { formatCurrency } from '../lib/math/rounding';
@@ -14,9 +14,25 @@ interface StockViewProps {
 
 export default function StockView({ inventoryItems, targetMarkup, onSellClick }: StockViewProps) {
   const [brandQuery, setBrandQuery] = useState('');
-  const [minCostStr, setMinCostStr] = useState('');
-  const [maxCostStr, setMaxCostStr] = useState('');
   const [page, setPage] = useState(0);
+
+  // Price range slider state (values in Taka)
+  const priceBounds = useMemo(() => {
+    if (inventoryItems.length === 0) return { min: 0, max: 1000 };
+    const costs = inventoryItems.map(i => Math.round(i.wholesaleCost / 100));
+    return {
+      min: Math.min(...costs),
+      max: Math.max(...costs)
+    };
+  }, [inventoryItems]);
+
+  const [minPrice, setMinPrice] = useState(priceBounds.min);
+  const [maxPrice, setMaxPrice] = useState(priceBounds.max);
+
+  useEffect(() => {
+    setMinPrice(priceBounds.min);
+    setMaxPrice(priceBounds.max);
+  }, [priceBounds.min, priceBounds.max]);
 
   const filteredItems = useMemo(() => {
     let items = inventoryItems;
@@ -26,22 +42,12 @@ export default function StockView({ inventoryItems, targetMarkup, onSellClick }:
       items = items.filter(item => item.brand.toLowerCase().includes(q));
     }
 
-    if (minCostStr.trim()) {
-      const minPoisha = Math.round(parseFloat(minCostStr) * 100);
-      if (!isNaN(minPoisha)) {
-        items = items.filter(item => item.wholesaleCost >= minPoisha);
-      }
-    }
-
-    if (maxCostStr.trim()) {
-      const maxPoisha = Math.round(parseFloat(maxCostStr) * 100);
-      if (!isNaN(maxPoisha)) {
-        items = items.filter(item => item.wholesaleCost <= maxPoisha);
-      }
-    }
+    const minPoisha = minPrice * 100;
+    const maxPoisha = maxPrice * 100;
+    items = items.filter(item => item.wholesaleCost >= minPoisha && item.wholesaleCost <= maxPoisha);
 
     return items;
-  }, [inventoryItems, brandQuery, minCostStr, maxCostStr]);
+  }, [inventoryItems, brandQuery, minPrice, maxPrice]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
@@ -53,16 +59,6 @@ export default function StockView({ inventoryItems, targetMarkup, onSellClick }:
 
   const handleSearchChange = (value: string) => {
     setBrandQuery(value);
-    setPage(0);
-  };
-
-  const handleMinCostChange = (value: string) => {
-    setMinCostStr(value);
-    setPage(0);
-  };
-
-  const handleMaxCostChange = (value: string) => {
-    setMaxCostStr(value);
     setPage(0);
   };
 
@@ -80,26 +76,75 @@ export default function StockView({ inventoryItems, targetMarkup, onSellClick }:
             className="w-full bg-white border-2 border-black rounded-xl py-2 pl-7 pr-3 font-mono text-xs text-black focus:outline-none min-h-[36px]"
           />
         </div>
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <input
-              type="number"
-              placeholder="Min wholesale (৳)"
-              value={minCostStr}
-              onChange={(e) => handleMinCostChange(e.target.value)}
-              className="w-full bg-white border-2 border-black rounded-xl py-2 px-3 font-mono text-xs text-black focus:outline-none min-h-[36px]"
-            />
+        {/* Price Range Slider */}
+        {inventoryItems.length > 0 && (
+          <div className="bg-white border-2 border-black rounded-xl p-3 shadow-neobrutal-sm space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-[9px] font-sans font-bold text-slate-700 uppercase tracking-wider">Wholesale Range</span>
+              <span className="text-[10px] font-mono font-bold text-black">
+                ৳{minPrice} — ৳{maxPrice}
+              </span>
+            </div>
+            <div className="relative h-6">
+              <div className="absolute top-1/2 -translate-y-1/2 w-full h-2 bg-slate-200 rounded-full border border-black" />
+              <div
+                className="absolute top-1/2 -translate-y-1/2 h-2 bg-purple-400 rounded-full border border-black"
+                style={{
+                  left: `${((minPrice - priceBounds.min) / Math.max(priceBounds.max - priceBounds.min, 1)) * 100}%`,
+                  width: `${((maxPrice - minPrice) / Math.max(priceBounds.max - priceBounds.min, 1)) * 100}%`
+                }}
+              />
+              <input
+                type="range"
+                min={priceBounds.min}
+                max={priceBounds.max}
+                value={minPrice}
+                step={10}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val <= maxPrice) {
+                    setMinPrice(val);
+                    setPage(0);
+                  }
+                }}
+                className="absolute top-0 left-0 w-full h-full appearance-none bg-transparent pointer-events-none z-10
+                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto
+                  [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
+                  [&::-webkit-slider-thumb]:bg-purple-600 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-black
+                  [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer
+                  [&::-webkit-slider-thumb]:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]
+                  [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:pointer-events-auto
+                  [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5
+                  [&::-moz-range-thumb]:bg-purple-600 [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-black
+                  [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer"
+              />
+              <input
+                type="range"
+                min={priceBounds.min}
+                max={priceBounds.max}
+                value={maxPrice}
+                step={10}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val >= minPrice) {
+                    setMaxPrice(val);
+                    setPage(0);
+                  }
+                }}
+                className="absolute top-0 left-0 w-full h-full appearance-none bg-transparent pointer-events-none z-10
+                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto
+                  [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
+                  [&::-webkit-slider-thumb]:bg-purple-600 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-black
+                  [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer
+                  [&::-webkit-slider-thumb]:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]
+                  [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:pointer-events-auto
+                  [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5
+                  [&::-moz-range-thumb]:bg-purple-600 [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-black
+                  [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer"
+              />
+            </div>
           </div>
-          <div className="flex-1">
-            <input
-              type="number"
-              placeholder="Max wholesale (৳)"
-              value={maxCostStr}
-              onChange={(e) => handleMaxCostChange(e.target.value)}
-              className="w-full bg-white border-2 border-black rounded-xl py-2 px-3 font-mono text-xs text-black focus:outline-none min-h-[36px]"
-            />
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Results Summary */}
