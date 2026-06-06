@@ -16,6 +16,7 @@ import ShipmentForm from './components/ShipmentForm';
 import DashboardView from './components/DashboardView';
 import SellSheet from './components/SellSheet';
 import ReportsView from './components/ReportsView';
+import StockView from './components/StockView';
 
 import { calculatePreferredPrice } from './lib/math/pricing';
 import { formatCurrency } from './lib/math/rounding';
@@ -52,7 +53,7 @@ function App() {
   const [targetMarkupStr, setTargetMarkupStr] = useState('20');
 
   // Navigation
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'finances' | 'inventory' | 'reports'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'finances' | 'inventory' | 'reports' | 'stock'>('dashboard');
 
   // Modal / Sheet States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -74,7 +75,6 @@ function App() {
   // Search/Filter & Pagination States
   const [txSearchQuery, setTxSearchQuery] = useState('');
   const [txCategoryFilter, setTxCategoryFilter] = useState<string>('all');
-  const [invSearchQuery, setInvSearchQuery] = useState('');
   const [txPage, setTxPage] = useState(0);
   const TX_PAGE_SIZE = 10;
 
@@ -97,12 +97,6 @@ function App() {
 
   const totalTxPages = Math.max(1, Math.ceil(filteredTransactions.length / TX_PAGE_SIZE));
   
-  const filteredInventory = useMemo(() => {
-    if (!invSearchQuery.trim()) return inventoryRecords;
-    const q = invSearchQuery.toLowerCase();
-    return inventoryRecords.filter(item => item.brand.toLowerCase().includes(q));
-  }, [inventoryRecords, invSearchQuery]);
-
   // Initialize DB on component mount
   useEffect(() => {
     async function startDatabase() {
@@ -308,7 +302,7 @@ function App() {
             <span className="w-3 h-3 rounded-full bg-green-500 border border-black inline-block"></span>
           </div>
           <h1 className="text-[11px] sm:text-xs font-display font-bold uppercase tracking-wider text-center flex-1 mx-2 truncate">
-            {activeTab === 'dashboard' ? 'ClothEx_Dashboard.exe' : activeTab === 'finances' ? 'ClothEx_Finances.exe' : activeTab === 'inventory' ? 'ClothEx_Inventory.exe' : 'ClothEx_Reports.exe'}
+            {activeTab === 'dashboard' ? 'ClothEx_Dashboard.exe' : activeTab === 'finances' ? 'ClothEx_Finances.exe' : activeTab === 'inventory' ? 'ClothEx_Shipments.exe' : activeTab === 'stock' ? 'ClothEx_Stock.exe' : 'ClothEx_Reports.exe'}
           </h1>
           <div className="flex items-center gap-1.5 shrink-0">
             {dbStatus === 'loading' && (
@@ -653,86 +647,6 @@ function App() {
             </div>
           ) : activeTab === 'inventory' ? (
             <div className="space-y-6 animate-fade-in">
-              {/* Summary Metrics */}
-              <div className="flex justify-between items-center">
-                <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                  <Package className="w-4 h-4 text-black" /> Active Stock Batches
-                </h2>
-                <span className="text-xs font-sans font-bold text-slate-600">
-                  Total Batches: {filteredInventory.length}
-                </span>
-              </div>
-
-              {/* Inventory Search */}
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="Search by brand..."
-                  value={invSearchQuery}
-                  onChange={(e) => setInvSearchQuery(e.target.value)}
-                  className="w-full bg-white border-2 border-black rounded-xl py-2 pl-7 pr-3 font-mono text-xs text-black focus:outline-none min-h-[36px]"
-                />
-              </div>
-
-              {filteredInventory.length === 0 ? (
-                <div className="bg-white rounded-xl border-2 border-black p-12 text-center text-slate-500 text-sm shadow-neobrutal-sm">
-                  <Package className="w-10 h-10 mx-auto mb-3 text-black opacity-60" />
-                  <p className="font-sans font-bold text-black text-base uppercase">
-                    {inventoryRecords.length === 0 ? 'No Inventory Items Logged' : 'No items match your search.'}
-                  </p>
-                  <p className="mt-2 text-xs text-slate-600">Tap the "+" button below to import your first multi-brand shipment batch.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {filteredInventory.map((item) => {
-                    let badgeClass = '';
-                    let badgeLabel = '';
-                    if (item.quantity === 0) {
-                      badgeClass = 'bg-red-400 text-black border-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]';
-                      badgeLabel = 'Out of Stock';
-                    } else if (item.quantity <= 3) {
-                      badgeClass = 'bg-yellow-300 text-black border-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]';
-                      badgeLabel = `Low Stock (${item.quantity})`;
-                    } else {
-                      badgeClass = 'bg-green-400 text-black border-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]';
-                      badgeLabel = `${item.quantity} in Stock`;
-                    }
-
-                    const preferredPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
-
-                    return (
-                      <div key={item.id} className="bg-white rounded-xl border-2 border-black p-4 shadow-neobrutal-sm flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-neobrutal transition-all duration-200">
-                        <div className="flex justify-between items-start gap-2 mb-3">
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-sans font-bold text-slate-500 uppercase tracking-wider">Batch #{item.id}</span>
-                            <h3 className="text-base font-sans font-bold text-black truncate max-w-[130px]">{item.brand}</h3>
-                          </div>
-                          <span className={`text-[9px] font-sans font-bold px-2 py-0.5 rounded-md border-2 ${badgeClass} uppercase tracking-wider shrink-0`}>
-                            {badgeLabel}
-                          </span>
-                        </div>
-
-                        <div className="border-t-2 border-black pt-3 grid grid-cols-3 gap-2 text-[10px] font-mono">
-                          <div>
-                            <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Wholesale</span>
-                            <span className="text-black font-extrabold">{formatCurrency(item.wholesaleCost)}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">True Cost</span>
-                            <span className="text-green-600 font-extrabold">{formatCurrency(item.trueCost)}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Pref Sell</span>
-                            <span className="text-purple-600 font-extrabold">{formatCurrency(preferredPrice)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
               {/* Shipments Log Section */}
               <section className="space-y-3 pt-4 border-t-2 border-slate-300">
                 <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
@@ -779,6 +693,15 @@ function App() {
                 </div>
               </section>
             </div>
+          ) : activeTab === 'stock' ? (
+            <StockView
+              inventoryItems={inventoryRecords}
+              targetMarkup={targetMarkup}
+              onSellClick={(item) => {
+                setSelectedSellItem(item);
+                setIsSellOpen(true);
+              }}
+            />
           ) : (
             <ReportsView
               transactions={testRecords}
@@ -790,10 +713,10 @@ function App() {
       </div>
 
       {/* Floating Action Button (fixed position above tab bar) */}
-      {activeTab !== 'reports' && (
+      {activeTab !== 'reports' && activeTab !== 'dashboard' && (
         <button
           onClick={() => {
-            if (activeTab === 'inventory') {
+            if (activeTab === 'inventory' || activeTab === 'stock') {
               setEditingShipment(null);
               setIsShipmentFormOpen(true);
             } else {
@@ -841,8 +764,19 @@ function App() {
               : 'text-slate-700 border-transparent hover:bg-slate-100 active:translate-y-[1px]'
           }`}
         >
+          <Database className="w-5 h-5 shrink-0" />
+          <span>Shipments</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('stock')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-sans font-bold uppercase tracking-wider min-h-[44px] min-w-[64px] justify-center transition-all rounded-xl border-2 ${
+            activeTab === 'stock'
+              ? 'bg-purple-600 text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+              : 'text-slate-700 border-transparent hover:bg-slate-100 active:translate-y-[1px]'
+          }`}
+        >
           <Package className="w-5 h-5 shrink-0" />
-          <span>Inventory</span>
+          <span>Stock</span>
         </button>
         <button
           onClick={() => setActiveTab('reports')}
