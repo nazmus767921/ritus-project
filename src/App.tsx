@@ -18,6 +18,7 @@ import SellSheet from './components/SellSheet';
 import ReportsView from './components/ReportsView';
 
 import { calculatePreferredPrice } from './lib/math/pricing';
+import { formatCurrency } from './lib/math/rounding';
 import PinScreen, { hasPinEnabled, setStoredPin } from './components/PinScreen';
 import { 
   exportDbToJson, importDbFromJson, triggerManualDownload, 
@@ -291,13 +292,6 @@ function App() {
   };
 
   const expenseCategories = new Set(['personal_expense', 'tailoring_expense', 'clothing_overhead']);
-
-  const formatCurrency = (amountInPoisha: number, category?: string) => {
-    const taka = amountInPoisha / 100;
-    const isExpense = category && expenseCategories.has(category);
-    const sign = isExpense ? '-' : taka < 0 ? '-' : '';
-    return `${sign}৳${Math.abs(taka).toFixed(2)}`;
-  };
 
   return (
     <>
@@ -591,7 +585,7 @@ function App() {
                             
                             <div className="text-right space-y-1.5 shrink-0 flex flex-col items-end">
                               <p className={`font-display font-bold ${expenseCategories.has(record.category) ? 'text-red-600' : 'text-black'} ${isRefunded ? 'line-through text-slate-400' : ''}`}>
-                                {formatCurrency(record.amount, record.category)}
+                                {formatCurrency(record.amount)}
                               </p>
                               
                               <div className="flex gap-1.5 items-center">
@@ -722,15 +716,15 @@ function App() {
                         <div className="border-t-2 border-black pt-3 grid grid-cols-3 gap-2 text-[10px] font-mono">
                           <div>
                             <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Wholesale</span>
-                            <span className="text-black font-extrabold">৳{(item.wholesaleCost / 100).toFixed(2)}</span>
+                            <span className="text-black font-extrabold">{formatCurrency(item.wholesaleCost)}</span>
                           </div>
                           <div>
                             <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">True Cost</span>
-                            <span className="text-green-600 font-extrabold">৳{(item.trueCost / 100).toFixed(2)}</span>
+                            <span className="text-green-600 font-extrabold">{formatCurrency(item.trueCost)}</span>
                           </div>
                           <div>
                             <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Pref Sell</span>
-                            <span className="text-purple-600 font-extrabold">৳{(preferredPrice / 100).toFixed(2)}</span>
+                            <span className="text-purple-600 font-extrabold">{formatCurrency(preferredPrice)}</span>
                           </div>
                         </div>
                       </div>
