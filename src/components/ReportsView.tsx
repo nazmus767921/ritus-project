@@ -1,12 +1,13 @@
 import { TrendingUp, DollarSign, Percent, BarChart3, AlertCircle } from 'lucide-react';
+import { calculatePreferredPrice, calculateProfitMargin } from '../lib/math/pricing';
 
 interface ReportsViewProps {
   transactions: any[];
   inventoryItems: any[];
-  targetMargin: number; // e.g. 0.20
+  targetMarkup: number; // e.g. 0.20
 }
 
-export default function ReportsView({ transactions, inventoryItems, targetMargin }: ReportsViewProps) {
+export default function ReportsView({ transactions, inventoryItems, targetMarkup }: ReportsViewProps) {
   // Format Poisha to Taka helper
   const formatCurrency = (amountInPoisha: number) => {
     const taka = amountInPoisha / 100;
@@ -39,7 +40,7 @@ export default function ReportsView({ transactions, inventoryItems, targetMargin
       return sum + (item ? item.trueCost : 0);
     }, 0);
 
-  const actualMarginVal = clothingRevenue > 0 ? (clothingRevenue - clothingCost) / clothingRevenue : 0;
+  const actualMarginVal = calculateProfitMargin(clothingRevenue, clothingCost);
 
   // Profit expectation meet rate
   const clothingSales = activeTx.filter(t => t.category === 'clothing_income');
@@ -47,7 +48,7 @@ export default function ReportsView({ transactions, inventoryItems, targetMargin
     if (!t.inventoryItemId) return true;
     const item = itemMap.get(t.inventoryItemId);
     if (!item) return true;
-    const targetPrice = item.trueCost / (1 - targetMargin);
+    const targetPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
     return t.amount >= targetPrice;
   });
   const meetRate = clothingSales.length > 0 ? (salesMeetingTarget.length / clothingSales.length) * 100 : 100;
@@ -137,7 +138,7 @@ export default function ReportsView({ transactions, inventoryItems, targetMargin
               {(actualMarginVal * 100).toFixed(1)}%
             </span>
             <span className="text-[10px] text-slate-800 font-bold block uppercase">
-              Target Overall: {(targetMargin * 100).toFixed(0)}%
+              Pricing Markup: {(targetMarkup * 100).toFixed(0)}%
             </span>
           </div>
         </div>
@@ -277,7 +278,7 @@ export default function ReportsView({ transactions, inventoryItems, targetMargin
                   {sortedMonths.map((monthKey) => {
                     const data = monthlyData[monthKey];
                     const clothingMargin = data.clothingRev > 0 
-                      ? ((data.clothingRev - data.clothingCost) / data.clothingRev) * 100 
+                      ? calculateProfitMargin(data.clothingRev, data.clothingCost) * 100 
                       : 0;
 
                     return (

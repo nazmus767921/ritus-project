@@ -4,21 +4,21 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-- **Development Phase 06**: CRUD, Refunds, Backups, Dynamic Margins & Reports (New Features)
+- **Development Phase 06**: CRUD, Refunds, Backups, Markup Pricing & Reports (New Features)
 
 ## Current Goal
 
-- Support transaction/shipment edit/delete, refunds with stock restoration, budget goals setting, local automatic/manual backups, dynamic margin pricing, and Reports view dashboard.
+- Support transaction/shipment edit/delete, refunds with stock restoration, budget goals setting, local automatic/manual backups, markup-based preferred pricing, and Reports view dashboard.
 
 ## Completed
 
-- **Phase 06: CRUD, Refunds, Backups, Dynamic Margins & Reports (New Features)**:
+- **Phase 06: CRUD, Refunds, Backups, Markup Pricing & Reports (New Features)**:
   - [x] Removed Math Playground and relational sandbox buttons.
   - [x] Implemented settings table and edit/delete/refund operations on transactions (with auto stock adjustment).
   - [x] Added edit/delete options for Shipments (with cascade inventory deletes and courier fee updates).
   - [x] Integrated stock selector dropdown on Clothing Income category transaction form with auto-filled prices.
   - [x] Built local auto-backup (persisting database state to localStorage on every update) and manual backup downloads/imports.
-  - [x] Implemented dynamic profit margin mathematical helper showing preferred selling prices on Sell dialog and inventory tables.
+  - [x] Implemented markup-based preferred selling prices on Sell dialog and inventory tables while keeping report KPIs margin-based.
   - [x] Added Reports tab with cash flow statistics, meet rate KPIs, SVG monthly sales/profit chart, and breakdown tables.
   - [x] Confirmed zero-type-flag production build and full unit test coverage.
 - **Phase 00: Specification & Design Definition**:

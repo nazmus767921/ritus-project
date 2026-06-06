@@ -1,4 +1,5 @@
 import { Scissors, Shirt, TrendingUp, Wallet, Package, AlertCircle } from 'lucide-react';
+import { calculatePreferredPrice } from '../lib/math/pricing';
 
 interface DashboardViewProps {
   metrics: {
@@ -16,7 +17,7 @@ interface DashboardViewProps {
   }[];
   onSellClick: (item: any) => void;
   safetyPocketTarget: number;
-  dynamicMargin: number;
+  targetMarkup: number;
 }
 
 export default function DashboardView({
@@ -24,7 +25,7 @@ export default function DashboardView({
   inventoryItems,
   onSellClick,
   safetyPocketTarget,
-  dynamicMargin
+  targetMarkup
 }: DashboardViewProps) {
   // Format Poisha to Taka helper
   const formatCurrency = (amountInPoisha: number) => {
@@ -227,8 +228,7 @@ export default function DashboardView({
                 badgeLabel = `${item.quantity} in Stock`;
               }
 
-              // Calculate preferred selling price
-              const preferredPrice = item.trueCost / (1 - dynamicMargin);
+              const preferredPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
 
               return (
                 <div 

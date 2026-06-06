@@ -40,7 +40,7 @@ export const inventoryItems = sqliteTable('inventory_items', {
 });
 
 // 4. Settings Table
-// Stores app-wide configurations (e.g. target_profit_margin, safety_pocket_target)
+// Stores app-wide configurations (e.g. target_profit_margin for markup %, safety_pocket_target)
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull()

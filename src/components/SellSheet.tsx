@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { executeProductSale } from '../db/queries/inventory';
+import { calculatePreferredPrice } from '../lib/math/pricing';
 
 interface SellSheetProps {
   isOpen: boolean;
@@ -12,16 +13,15 @@ interface SellSheetProps {
     trueCost: number;
     quantity: number;
   } | null;
-  dynamicMargin: number;
+  targetMarkup: number;
 }
 
-export default function SellSheet({ isOpen, onClose, onSave, item, dynamicMargin }: SellSheetProps) {
+export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup }: SellSheetProps) {
   const [retailPriceStr, setRetailPriceStr] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
 
-  // Calculate preferred selling price
-  const preferredPrice = item ? item.trueCost / (1 - dynamicMargin) : 0;
+  const preferredPrice = item ? calculatePreferredPrice(item.trueCost, targetMarkup) : 0;
 
   // Prefill price suggestions or clear inputs on mount/item change
   useEffect(() => {
@@ -123,7 +123,7 @@ export default function SellSheet({ isOpen, onClose, onSave, item, dynamicMargin
                 <span className="text-green-600 font-extrabold">৳{(item.trueCost / 100).toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Pref Sell ({Math.round(dynamicMargin * 100)}%)</span>
+                <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Pref Sell ({Math.round(targetMarkup * 100)}% Markup)</span>
                 <span className="text-purple-600 font-extrabold">৳{(preferredPrice / 100).toFixed(2)}</span>
               </div>
             </div>

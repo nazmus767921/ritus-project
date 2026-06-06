@@ -24,7 +24,7 @@ This plan outlines the design and implementation details for the requested featu
 ### 1. Database Schema
 
 #### [MODIFY] [schema.ts](file:///c:/Users/Admin/Desktop/Projects/ritus-project/src/db/schema.ts)
-- **Settings Table**: Add `settings` table to store target safety pocket and target profit margin.
+- **Settings Table**: Add `settings` table to store target safety pocket and target markup. The existing `target_profit_margin` key is retained as the stored markup percentage for compatibility.
 - **Transactions Table**:
   - Add `status` column: text (`'active' | 'refunded'`), defaulting to `'active'`.
   - Add `inventoryItemId` column: integer, referencing `inventory_items.id` (nullable).
@@ -61,17 +61,12 @@ export const transactions = sqliteTable('transactions', {
 
 ### 2. Business & Mathematical Logic
 
-#### [NEW] [margin.ts](file:///c:/Users/Admin/Desktop/Projects/ritus-project/src/lib/math/margin.ts)
-- Implement dynamic profit margin suggestion:
-  - Let $T$ = Target profit margin percentage (e.g. 0.20 for 20%).
-  - Let $C_{sold}$ = Cost of all sold inventory items (active sales, excluding refunded).
-  - Let $R_{sold}$ = Actual revenue from all sold items (active sales, excluding refunded).
-  - Let $C_{inv}$ = True cost of active stock currently in inventory (quantity > 0).
-  - Formula:
-    $$RequiredRemainingRevenue = \frac{C_{sold} + C_{inv}}{1 - T} - R_{sold}$$
-    $$DynamicMargin = 1 - \frac{C_{inv}}{RequiredRemainingRevenue}$$
-  - Enforce bounds: floor at $0\%$ (no loss recommendation below true cost) and cap at $90\%$ to avoid dividing by small numbers or infinite prices.
-  - Preferred Selling Price = $\frac{TrueCost}{1 - DynamicMargin}$.
+#### [NEW] [pricing.ts](file:///c:/Users/Admin/Desktop/Projects/ritus-project/src/lib/math/pricing.ts)
+- Implement markup-based preferred price suggestions:
+  - Let $M$ = Target markup percentage (e.g. 0.50 for 50% over true cost).
+  - Preferred Selling Price = $TrueCost \times (1 + M)$.
+  - Reports continue to calculate profit margin from real sale results:
+    $$ProfitMargin = \frac{Revenue - Cost}{Revenue}$$
 
 #### [NEW] [backup.ts](file:///c:/Users/Admin/Desktop/Projects/ritus-project/src/lib/backup/backup.ts)
 - Implement backup exporter/importer:
@@ -112,14 +107,14 @@ export const transactions = sqliteTable('transactions', {
 #### [MODIFY] [App.tsx](file:///c:/Users/Admin/Desktop/Projects/ritus-project/src/App.tsx)
 - Delete the Option A Calculator Playground and the relational sandbox control buttons.
 - Modify tab bar to support four tabs: `dashboard` (Metrics), `finances` (Finances List & CRUD), `inventory` (Stock & Shipments), and `reports` (KPIs & Monthly performance charts).
-- Include Settings inputs (or a Settings overlay) to define **Expected Profit Margin %** and **Target Safety Pocket**.
+- Include Settings inputs (or a Settings overlay) to define **Expected Markup %** and **Target Safety Pocket**.
 - Add automatic local backup trigger on save transactions/shipments/refunds.
 
 #### [MODIFY] [TransactionForm.tsx](file:///c:/Users/Admin/Desktop/Projects/ritus-project/src/components/TransactionForm.tsx)
 - Update form to handle edit mode (prefilling values based on transaction input).
 - When category is `clothing_income` (Clothing Retail Sale), display an Inventory Item Selector:
   - Dropdown containing active stock items (brand name, batch ID, current stock count).
-  - On select, prefill amount field with the calculated preferred selling price based on the dynamic margin.
+  - On select, prefill amount field with the calculated preferred selling price based on target markup.
   - On save, decrement stock (-1) and save transaction linked to `inventoryItemId`.
 
 #### [MODIFY] [DashboardView.tsx](file:///c:/Users/Admin/Desktop/Projects/ritus-project/src/components/DashboardView.tsx)
@@ -127,13 +122,13 @@ export const transactions = sqliteTable('transactions', {
 - Display a warning banner if the Safety Pocket falls below the **Target Safety Pocket** setting.
 - Update Mascot dialogue triggers:
   - If Safety Pocket is below target budget, make the Mascot warn the user.
-  - Adjust dialogue lines based on profit margin targets.
+  - Adjust dialogue lines based on budget and inventory targets.
 
 #### [NEW] [ReportsView.tsx](file:///c:/Users/Admin/Desktop/Projects/ritus-project/src/components/ReportsView.tsx)
 - Add Reports Page tab content:
   - **KPI grid**:
     - **Total Inflow vs Outflow**: sum of all income categories vs overhead/expenses.
-    - **Expected vs Actual Margin**: target profit margin vs actual margin of sold items.
+    - **Actual Margin**: profit margin of sold clothing items.
     - **Expectation Meet Rate**: percentage of active sales that matched or exceeded the preferred selling price suggestion.
   - **SVG Bar Chart**: display monthly sales (neon green bars) and profits (electric purple bars) side-by-side using simple SVG components.
   - **Monthly Breakdown Table**: list month-by-month values for Sales, Profit, and Expenses.
@@ -145,14 +140,14 @@ export const transactions = sqliteTable('transactions', {
 ### Automated Tests
 - Run `npm run test` using Vitest to verify calculation accuracy.
 - Add test coverage for:
-  - `margin.ts` dynamic profit margin formula (including capping/flooring checks).
+  - `pricing.ts` markup preferred price and profit margin formulas.
   - Database schema changes (inserting/updating transactions with stock links, cascade deletes on shipments).
 
 ### Manual Verification
-1. Open dashboard, set expected profit margin to 20% and Safety Pocket target to 1000 Taka.
+1. Open dashboard, set expected markup to 20% and Safety Pocket target to 1000 Taka.
 2. Log a personal expense transaction that forces Safety Pocket below 1000 Taka; verify that the warning banner displays and the Mascot complains.
-3. Add a shipment of 10 items with 150 Taka courier fee; check that the preferred price suggests 20% profit margin over true unit cost.
-4. Record a sale below the preferred price; verify that the preferred price of remaining inventory items increases to compensate.
+3. Add a shipment of 10 items with 150 Taka courier fee; check that the preferred price suggests 20% markup over true unit cost.
+4. Record a sale below the preferred price; verify that Reports still calculate actual margin from sale revenue and true cost.
 5. In the Transaction Form, select "Clothing Retail Sale", pick a stock item, verify price auto-fills, and click save. Check that stock count decrements by 1.
 6. Trigger a refund on a transaction; verify that stock is restored and financial records are adjusted.
 7. Trigger local backup download, delete a transaction, and restore from the downloaded backup. Verify original state is restored.
