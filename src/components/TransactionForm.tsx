@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { Check } from 'lucide-react';
 import { insertTransaction, updateTransaction } from '../db/queries/transactions';
 import { calculatePreferredPrice } from '../lib/math/pricing';
+import type { TransactionRecord, InventoryItemRecord } from '../db/types';
 
 interface TransactionFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: () => void;
-  transaction?: any | null;
-  inventoryItems?: any[];
+  transaction?: TransactionRecord | null;
+  inventoryItems?: InventoryItemRecord[];
   targetMarkup?: number;
 }
 
@@ -136,10 +137,10 @@ export default function TransactionForm({
       // Callback to refresh data and close
       onSave();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setAlertConfig({
         title: 'Validation Error',
-        message: err.message || 'Please check your inputs and try again.',
+        message: err instanceof Error ? err.message : 'Please check your inputs and try again.',
       });
     } finally {
       setIsSubmitting(false);

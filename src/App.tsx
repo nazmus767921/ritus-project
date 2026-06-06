@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { initDb } from './db/client';
 import { 
   RefreshCw, CheckCircle2, AlertCircle, Plus, DollarSign, Package, 
-  LayoutDashboard, BarChart3, Settings, Download, Upload, RotateCcw, Edit2, Trash2, Undo2, Database
+  LayoutDashboard, BarChart3, Settings, Download, Upload, RotateCcw, Edit2, Trash2, Undo2, Database, Search
 } from 'lucide-react';
 
 import { getTransactions, deleteTransaction, refundTransaction } from './db/queries/transactions';
@@ -18,20 +18,23 @@ import SellSheet from './components/SellSheet';
 import ReportsView from './components/ReportsView';
 
 import { calculatePreferredPrice } from './lib/math/pricing';
+import PinScreen, { hasPinEnabled, setStoredPin } from './components/PinScreen';
 import { 
   exportDbToJson, importDbFromJson, triggerManualDownload, 
   autoBackupLocal, restoreFromAutoBackup, hasAutoBackup 
 } from './lib/backup/backup';
+
+import type { TransactionRecord, InventoryItemRecord, ShipmentWithItems, DashboardMetrics } from './db/types';
 
 function App() {
   const [dbStatus, setDbStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [dbError, setDbError] = useState<string | null>(null);
   
   // Data States
-  const [testRecords, setTestRecords] = useState<any[]>([]);
-  const [inventoryRecords, setInventoryRecords] = useState<any[]>([]);
-  const [shipmentRecords, setShipmentRecords] = useState<any[]>([]);
-  const [metrics, setMetrics] = useState({
+  const [testRecords, setTestRecords] = useState<TransactionRecord[]>([]);
+  const [inventoryRecords, setInventoryRecords] = useState<InventoryItemRecord[]>([]);
+  const [shipmentRecords, setShipmentRecords] = useState<ShipmentWithItems[]>([]);
+  const [metrics, setMetrics] = useState<DashboardMetrics>({
     tailoringNet: 0,
     clothingNet: 0,
     totalBusinessProfit: 0,
@@ -52,13 +55,49 @@ function App() {
   const [isShipmentFormOpen, setIsShipmentFormOpen] = useState(false);
   const [isSellOpen, setIsSellOpen] = useState(false);
   
-  const [editingTransaction, setEditingTransaction] = useState<any | null>(null);
-  const [editingShipment, setEditingShipment] = useState<any | null>(null);
-  const [selectedSellItem, setSelectedSellItem] = useState<any | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<TransactionRecord | null>(null);
+  const [editingShipment, setEditingShipment] = useState<ShipmentWithItems | null>(null);
+  const [selectedSellItem, setSelectedSellItem] = useState<InventoryItemRecord | null>(null);
 
   // Collapsible Settings & Backup sections in Finances Tab
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isBackupsOpen, setIsBackupsOpen] = useState(false);
+
+  // PIN Lock State
+  const [isLocked, setIsLocked] = useState(hasPinEnabled);
+  const [pinSetupValue, setPinSetupValue] = useState('');
+
+  // Search/Filter & Pagination States
+  const [txSearchQuery, setTxSearchQuery] = useState('');
+  const [txCategoryFilter, setTxCategoryFilter] = useState<string>('all');
+  const [invSearchQuery, setInvSearchQuery] = useState('');
+  const [txPage, setTxPage] = useState(0);
+  const TX_PAGE_SIZE = 10;
+
+  const filteredTransactions = useMemo(() => {
+    let filtered = testRecords;
+    if (txSearchQuery.trim()) {
+      const q = txSearchQuery.toLowerCase();
+      filtered = filtered.filter(t => t.description.toLowerCase().includes(q));
+    }
+    if (txCategoryFilter !== 'all') {
+      filtered = filtered.filter(t => t.category === txCategoryFilter);
+    }
+    return filtered;
+  }, [testRecords, txSearchQuery, txCategoryFilter]);
+
+  const paginatedTransactions = useMemo(() => {
+    const start = txPage * TX_PAGE_SIZE;
+    return filteredTransactions.slice(start, start + TX_PAGE_SIZE);
+  }, [filteredTransactions, txPage]);
+
+  const totalTxPages = Math.max(1, Math.ceil(filteredTransactions.length / TX_PAGE_SIZE));
+  
+  const filteredInventory = useMemo(() => {
+    if (!invSearchQuery.trim()) return inventoryRecords;
+    const q = invSearchQuery.toLowerCase();
+    return inventoryRecords.filter(item => item.brand.toLowerCase().includes(q));
+  }, [inventoryRecords, invSearchQuery]);
 
   // Initialize DB on component mount
   useEffect(() => {
@@ -69,10 +108,10 @@ function App() {
         setDbStatus('ready');
         await loadSettings();
         await refreshAll();
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to initialize local sqlite db:', err);
         setDbStatus('error');
-        setDbError(err.message || 'Unknown error');
+        setDbError(err instanceof Error ? err.message : 'Unknown error');
       }
     }
     startDatabase();
@@ -91,7 +130,7 @@ function App() {
       
       setTargetMarkup(markupVal);
       setTargetMarkupStr(markupStr);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to load settings:", err);
     }
   };
@@ -101,7 +140,7 @@ function App() {
     const parsed = parseFloat(valStr) || 0;
     setSafetyPocketTarget(parsed * 100);
     await setSetting('safety_pocket_target', valStr);
-    await autoBackupLocal();
+    autoBackupLocal();
   };
 
   const handleSaveTargetMarkup = async (valStr: string) => {
@@ -109,14 +148,14 @@ function App() {
     const parsed = parseFloat(valStr) || 20;
     setTargetMarkup(parsed / 100);
     await setSetting('target_profit_margin', valStr);
-    await autoBackupLocal();
+    autoBackupLocal();
   };
 
   const refreshTestRecords = async () => {
     try {
       const allTx = await getTransactions();
       setTestRecords(allTx);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error listing transactions:', err);
     }
   };
@@ -125,7 +164,7 @@ function App() {
     try {
       const allItems = await getInventoryItems();
       setInventoryRecords(allItems);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error listing inventory items:', err);
     }
   };
@@ -134,12 +173,12 @@ function App() {
     try {
       const shps = await getShipments();
       const allItems = await getInventoryItems();
-      const shpsWithItems = shps.map((s: any) => ({
+      const shpsWithItems: ShipmentWithItems[] = shps.map((s) => ({
         ...s,
-        items: allItems.filter((item: any) => item.shipmentId === s.id)
+        items: allItems.filter((item) => item.shipmentId === s.id)
       }));
       setShipmentRecords(shpsWithItems);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to list shipments:", err);
     }
   };
@@ -148,22 +187,23 @@ function App() {
     try {
       const data = await fetchAggregatedMetrics();
       setMetrics(data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error listing aggregated metrics:', err);
     }
   };
 
   const refreshAll = async () => {
-    await refreshTestRecords();
-    await refreshInventoryRecords();
-    await refreshShipmentRecords();
-    await refreshMetrics();
-    // Auto-backup to localStorage on every state update
-    await autoBackupLocal();
+    await Promise.all([
+      refreshTestRecords(),
+      refreshInventoryRecords(),
+      refreshShipmentRecords(),
+      refreshMetrics()
+    ]);
+    autoBackupLocal();
   };
 
   // Edit / Delete / Refund handlers
-  const handleEditTransaction = (tx: any) => {
+  const handleEditTransaction = (tx: TransactionRecord) => {
     setEditingTransaction(tx);
     setIsFormOpen(true);
   };
@@ -173,8 +213,8 @@ function App() {
       try {
         await deleteTransaction(id);
         await refreshAll();
-      } catch (err: any) {
-        alert("Failed to delete transaction: " + err.message);
+      } catch (err: unknown) {
+        alert("Failed to delete transaction: " + (err instanceof Error ? err.message : String(err)));
       }
     }
   };
@@ -184,13 +224,13 @@ function App() {
       try {
         await refundTransaction(id);
         await refreshAll();
-      } catch (err: any) {
-        alert("Failed to refund transaction: " + err.message);
+      } catch (err: unknown) {
+        alert("Failed to refund transaction: " + (err instanceof Error ? err.message : String(err)));
       }
     }
   };
 
-  const handleEditShipment = (shp: any) => {
+  const handleEditShipment = (shp: ShipmentWithItems) => {
     setEditingShipment(shp);
     setIsShipmentFormOpen(true);
   };
@@ -200,19 +240,18 @@ function App() {
       try {
         await deleteShipment(id);
         await refreshAll();
-      } catch (err: any) {
-        alert("Failed to delete shipment: " + err.message);
+      } catch (err: unknown) {
+        alert("Failed to delete shipment: " + (err instanceof Error ? err.message : String(err)));
       }
     }
   };
 
-  // Backup Manual Exporter/Importer
   const handleDownloadBackup = async () => {
     try {
       const jsonStr = await exportDbToJson();
       triggerManualDownload(jsonStr);
-    } catch (err: any) {
-      alert("Failed to export backup: " + err.message);
+    } catch (err: unknown) {
+      alert("Failed to export backup: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -228,8 +267,8 @@ function App() {
         await loadSettings();
         await refreshAll();
         alert("Backup restored successfully!");
-      } catch (err: any) {
-        alert("Restore failed: " + err.message);
+      } catch (err: unknown) {
+        alert("Restore failed: " + (err instanceof Error ? err.message : String(err)));
       }
     };
     reader.readAsText(file);
@@ -255,7 +294,9 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-yellow-100 text-black font-sans p-4 md:p-8 flex flex-col items-center pb-28">
+    <>
+      {isLocked && <PinScreen onUnlock={() => setIsLocked(false)} />}
+      <div className={`min-h-screen bg-yellow-100 text-black font-sans p-4 md:p-8 flex flex-col items-center pb-28 ${isLocked ? 'hidden' : ''}`}>
       {/* Retro Game Window Wrapper */}
       <div className="w-full max-w-2xl bg-white rounded-2xl border-[3px] border-black shadow-neobrutal overflow-hidden">
         {/* Retro Title Bar Header */}
@@ -352,6 +393,73 @@ function App() {
                         />
                       </div>
                     </div>
+
+                    {/* PIN Lock Section */}
+                    <div className="border-t-2 border-slate-200 pt-4 space-y-3">
+                      <label className="text-[10px] font-sans font-extrabold text-slate-700 uppercase">App PIN Lock</label>
+                      {hasPinEnabled() ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            maxLength={6}
+                            placeholder="Enter new PIN to change"
+                            value={pinSetupValue}
+                            onChange={(e) => setPinSetupValue(e.target.value)}
+                            className="flex-1 bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-mono text-xs text-black focus:outline-none min-h-[38px]"
+                          />
+                          <button
+                            onClick={() => {
+                              if (pinSetupValue.length === 6) {
+                                setStoredPin(pinSetupValue);
+                                setPinSetupValue('');
+                                alert('PIN updated successfully.');
+                              }
+                            }}
+                            disabled={pinSetupValue.length !== 6}
+                            className="bg-green-300 border-2 border-black rounded-xl py-2 px-3 text-xs font-sans font-bold uppercase disabled:opacity-40 cursor-pointer hover:bg-green-400 transition-colors"
+                          >
+                            Set
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('Remove PIN lock?')) {
+                                setStoredPin('');
+                                alert('PIN lock removed.');
+                              }
+                            }}
+                            className="bg-red-300 border-2 border-black rounded-xl py-2 px-3 text-xs font-sans font-bold uppercase cursor-pointer hover:bg-red-400 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            maxLength={6}
+                            placeholder="Set a 6-digit PIN"
+                            value={pinSetupValue}
+                            onChange={(e) => setPinSetupValue(e.target.value)}
+                            className="flex-1 bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-mono text-xs text-black focus:outline-none min-h-[38px]"
+                          />
+                          <button
+                            onClick={() => {
+                              if (pinSetupValue.length === 6) {
+                                setStoredPin(pinSetupValue);
+                                setPinSetupValue('');
+                                setIsLocked(true);
+                                alert('PIN set. The app will lock on next action.');
+                              }
+                            }}
+                            disabled={pinSetupValue.length !== 6}
+                            className="bg-purple-600 text-white border-2 border-black rounded-xl py-2 px-3 text-xs font-sans font-bold uppercase disabled:opacity-40 cursor-pointer hover:bg-purple-700 transition-colors"
+                          >
+                            Enable
+                          </button>
+                        </div>
+                      )}
+                      <p className="text-[9px] text-slate-500 font-sans font-medium">Set a 6-digit PIN to lock the app on startup.</p>
+                    </div>
                   </div>
                 )}
               </section>
@@ -407,14 +515,42 @@ function App() {
                   <DollarSign className="w-4.5 h-4.5 text-black" /> Financial Transactions Log
                 </h2>
 
+                {/* Search & Filter Controls */}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Search transactions..."
+                      value={txSearchQuery}
+                      onChange={(e) => { setTxSearchQuery(e.target.value); setTxPage(0); }}
+                      className="w-full bg-white border-2 border-black rounded-xl py-2 pl-7 pr-3 font-mono text-xs text-black focus:outline-none min-h-[36px]"
+                    />
+                  </div>
+                  <select
+                    value={txCategoryFilter}
+                    onChange={(e) => { setTxCategoryFilter(e.target.value); setTxPage(0); }}
+                    className="bg-white border-2 border-black rounded-xl py-2 px-2 font-mono text-xs text-black focus:outline-none min-h-[36px]"
+                  >
+                    <option value="all">All</option>
+                    <option value="clothing_income">Clothing Income</option>
+                    <option value="clothing_overhead">Clothing Overhead</option>
+                    <option value="tailoring_income">Tailoring Income</option>
+                    <option value="tailoring_expense">Tailoring Expense</option>
+                    <option value="personal_expense">Personal Expense</option>
+                  </select>
+                </div>
+
                 <div className="bg-white rounded-xl border-[3px] border-black overflow-hidden shadow-neobrutal-sm">
-                  {testRecords.length === 0 ? (
+                  {filteredTransactions.length === 0 ? (
                     <div className="p-8 text-center text-slate-500 text-sm">
-                      No records logged yet. Tap the "+" button to record your first transaction.
+                      {testRecords.length === 0
+                        ? 'No records logged yet. Tap the "+" button to record your first transaction.'
+                        : 'No transactions match your search criteria.'}
                     </div>
                   ) : (
-                    <div className="divide-y-2 divide-black max-h-[450px] overflow-y-auto">
-                      {testRecords.map((record) => {
+                    <div className="divide-y-2 divide-black">
+                      {paginatedTransactions.map((record) => {
                         const isRefunded = record.status === 'refunded';
                         return (
                           <div 
@@ -481,6 +617,29 @@ function App() {
                       })}
                     </div>
                   )}
+
+                  {/* Pagination Controls */}
+                  {filteredTransactions.length > TX_PAGE_SIZE && (
+                    <div className="flex items-center justify-between p-3 border-t-2 border-black bg-slate-50">
+                      <button
+                        onClick={() => setTxPage(p => Math.max(0, p - 1))}
+                        disabled={txPage === 0}
+                        className="text-xs font-sans font-bold uppercase px-3 py-1.5 rounded-lg border-2 border-black bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 cursor-pointer transition-colors"
+                      >
+                        Prev
+                      </button>
+                      <span className="text-xs font-sans font-bold text-slate-600">
+                        Page {txPage + 1} of {totalTxPages}
+                      </span>
+                      <button
+                        onClick={() => setTxPage(p => Math.min(totalTxPages - 1, p + 1))}
+                        disabled={txPage >= totalTxPages - 1}
+                        className="text-xs font-sans font-bold uppercase px-3 py-1.5 rounded-lg border-2 border-black bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 cursor-pointer transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
                 </div>
               </section>
             </div>
@@ -492,19 +651,33 @@ function App() {
                   <Package className="w-4 h-4 text-black" /> Active Stock Batches
                 </h2>
                 <span className="text-xs font-sans font-bold text-slate-600">
-                  Total Batches: {inventoryRecords.length}
+                  Total Batches: {filteredInventory.length}
                 </span>
               </div>
 
-              {inventoryRecords.length === 0 ? (
+              {/* Inventory Search */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search by brand..."
+                  value={invSearchQuery}
+                  onChange={(e) => setInvSearchQuery(e.target.value)}
+                  className="w-full bg-white border-2 border-black rounded-xl py-2 pl-7 pr-3 font-mono text-xs text-black focus:outline-none min-h-[36px]"
+                />
+              </div>
+
+              {filteredInventory.length === 0 ? (
                 <div className="bg-white rounded-xl border-2 border-black p-12 text-center text-slate-500 text-sm shadow-neobrutal-sm">
                   <Package className="w-10 h-10 mx-auto mb-3 text-black opacity-60" />
-                  <p className="font-sans font-bold text-black text-base uppercase">No Inventory Items Logged</p>
+                  <p className="font-sans font-bold text-black text-base uppercase">
+                    {inventoryRecords.length === 0 ? 'No Inventory Items Logged' : 'No items match your search.'}
+                  </p>
                   <p className="mt-2 text-xs text-slate-600">Tap the "+" button below to import your first multi-brand shipment batch.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {inventoryRecords.map((item) => {
+                  {filteredInventory.map((item) => {
                     let badgeClass = '';
                     let badgeLabel = '';
                     if (item.quantity === 0) {
@@ -711,7 +884,8 @@ function App() {
         item={selectedSellItem}
         targetMarkup={targetMarkup}
       />
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -1,6 +1,7 @@
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../client';
 import { shipments, inventoryItems, transactions } from '../schema';
+import type { ShipmentRecord, InventoryItemRecord } from '../types';
 
 export interface ShipmentItemInput {
   id?: number;
@@ -15,13 +16,12 @@ export interface ShipmentItemInput {
  * All writes occur inside a single SQLite transaction to prevent orphan records.
  */
 export async function createShipmentTransaction(
-  courierFee: number, // Scaled integer (Poisha)
+  courierFee: number,
   deliveryDate: Date,
   items: ShipmentItemInput[]
-) {
+): Promise<ShipmentRecord> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
-    // 1. Insert Shipment Header
     const [insertedShipment] = await tx.insert(shipments).values({
       courierFee,
       deliveryDate
@@ -31,7 +31,6 @@ export async function createShipmentTransaction(
       throw new Error('Failed to insert shipment header.');
     }
 
-    // 2. Insert Batch Inventory Items
     for (const item of items) {
       await tx.insert(inventoryItems).values({
         shipmentId: insertedShipment.id,
@@ -42,15 +41,19 @@ export async function createShipmentTransaction(
       });
     }
 
-    // 3. Log Courier Fee as Business Overhead Transaction
     if (courierFee > 0) {
-      await tx.insert(transactions).values({
+      const [feeTx] = await tx.insert(transactions).values({
         amount: courierFee,
         category: 'clothing_overhead',
         description: `Shipment #${insertedShipment.id} Courier Fee Overhead`,
         createdAt: deliveryDate,
         status: 'active'
-      });
+      }).returning();
+
+      // Store the courier transaction ID on the shipment
+      await tx.update(shipments)
+        .set({ courierTransactionId: feeTx.id })
+        .where(eq(shipments.id, insertedShipment.id));
     }
 
     return insertedShipment;
@@ -59,16 +62,17 @@ export async function createShipmentTransaction(
 
 /**
  * Deletes a shipment and its associated courier fee transaction.
- * Cascade deletes inventory items automatically.
+ * Uses the stored courierTransactionId instead of string matching.
  */
-export async function deleteShipment(shipmentId: number) {
+export async function deleteShipment(shipmentId: number): Promise<void> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
-    // 1. Delete associated courier fee transaction
-    await tx.delete(transactions)
-      .where(eq(transactions.description, `Shipment #${shipmentId} Courier Fee Overhead`));
-      
-    // 2. Delete shipment header (cascades to inventory items)
+    const [shipment] = await tx.select().from(shipments).where(eq(shipments.id, shipmentId));
+
+    if (shipment?.courierTransactionId) {
+      await tx.delete(transactions).where(eq(transactions.id, shipment.courierTransactionId));
+    }
+
     await tx.delete(shipments).where(eq(shipments.id, shipmentId));
   });
 }
@@ -81,26 +85,22 @@ export async function updateShipment(
   courierFee: number,
   deliveryDate: Date,
   items: ShipmentItemInput[]
-) {
+): Promise<void> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
-    // 1. Update Shipment Header
     await tx.update(shipments)
       .set({ courierFee, deliveryDate })
       .where(eq(shipments.id, shipmentId));
 
-    // 2. Fetch existing inventory items for this shipment
     const existingItems = await tx.select().from(inventoryItems).where(eq(inventoryItems.shipmentId, shipmentId));
-    const existingIds = existingItems.map((item: any) => item.id);
+    const existingIds: number[] = existingItems.map((item: InventoryItemRecord) => item.id);
 
-    // 3. Delete items that are no longer in the input list
-    const inputIds = items.map(i => i.id).filter(Boolean) as number[];
-    const toDelete = existingIds.filter((id: any) => !inputIds.includes(id));
+    const inputIds: number[] = items.map(i => i.id).filter((id): id is number => id !== undefined);
+    const toDelete = existingIds.filter((id: number) => !inputIds.includes(id));
     for (const delId of toDelete) {
       await tx.delete(inventoryItems).where(eq(inventoryItems.id, delId));
     }
 
-    // 4. Update or Insert items
     for (const item of items) {
       if (item.id) {
         await tx.update(inventoryItems)
@@ -122,26 +122,31 @@ export async function updateShipment(
       }
     }
 
-    // 5. Update or Insert Courier Fee Transaction
-    const courierDesc = `Shipment #${shipmentId} Courier Fee Overhead`;
-    const [existingTx] = await tx.select().from(transactions).where(eq(transactions.description, courierDesc));
-    
+    const [shipment] = await tx.select().from(shipments).where(eq(shipments.id, shipmentId));
+
     if (courierFee > 0) {
-      if (existingTx) {
+      if (shipment?.courierTransactionId) {
         await tx.update(transactions)
           .set({ amount: courierFee, createdAt: deliveryDate })
-          .where(eq(transactions.id, existingTx.id));
+          .where(eq(transactions.id, shipment.courierTransactionId));
       } else {
-        await tx.insert(transactions).values({
+        const [feeTx] = await tx.insert(transactions).values({
           amount: courierFee,
           category: 'clothing_overhead',
-          description: courierDesc,
+          description: `Shipment #${shipmentId} Courier Fee Overhead`,
           createdAt: deliveryDate,
           status: 'active'
-        });
+        }).returning();
+
+        await tx.update(shipments)
+          .set({ courierTransactionId: feeTx.id })
+          .where(eq(shipments.id, shipmentId));
       }
-    } else if (existingTx) {
-      await tx.delete(transactions).where(eq(transactions.id, existingTx.id));
+    } else if (shipment?.courierTransactionId) {
+      await tx.delete(transactions).where(eq(transactions.id, shipment.courierTransactionId));
+      await tx.update(shipments)
+        .set({ courierTransactionId: null })
+        .where(eq(shipments.id, shipmentId));
     }
   });
 }
@@ -149,7 +154,7 @@ export async function updateShipment(
 /**
  * Retrieves all shipments, ordered by ID desc.
  */
-export async function getShipments() {
+export async function getShipments(): Promise<ShipmentRecord[]> {
   const db = getDb();
   return await db.select().from(shipments).orderBy(desc(shipments.id));
 }

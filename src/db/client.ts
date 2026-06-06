@@ -87,6 +87,13 @@ export async function initDb() {
     // Ignore error if column already exists
   }
 
+  // Migrate schema for shipments table additions
+  try {
+    await sqlite3.exec(dbPtr, `ALTER TABLE shipments ADD COLUMN courier_transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL;`);
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
   // Create settings table
   await sqlite3.exec(dbPtr, `
     CREATE TABLE IF NOT EXISTS settings (

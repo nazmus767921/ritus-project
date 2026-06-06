@@ -2,6 +2,7 @@ import { getDb } from '../../db/client';
 import { transactions, shipments, inventoryItems, settings } from '../../db/schema';
 
 const AUTO_BACKUP_KEY = 'clothex_auto_backup';
+let backupTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Serializes all SQLite tables to a JSON backup string.
@@ -111,15 +112,21 @@ export function triggerManualDownload(jsonStr: string) {
 }
 
 /**
- * Automatically saves a backup JSON snapshot to localStorage.
+ * Automatically saves a backup JSON snapshot to localStorage, debounced (2s).
+ * Multiple rapid mutations will only trigger one backup after a quiet period.
  */
-export async function autoBackupLocal(): Promise<void> {
-  try {
-    const jsonStr = await exportDbToJson();
-    localStorage.setItem(AUTO_BACKUP_KEY, jsonStr);
-  } catch (err) {
-    console.error("Local auto backup failed:", err);
+export function autoBackupLocal(): void {
+  if (backupTimer) {
+    clearTimeout(backupTimer);
   }
+  backupTimer = setTimeout(async () => {
+    try {
+      const jsonStr = await exportDbToJson();
+      localStorage.setItem(AUTO_BACKUP_KEY, jsonStr);
+    } catch (err) {
+      console.error("Local auto backup failed:", err);
+    }
+  }, 2000);
 }
 
 /**

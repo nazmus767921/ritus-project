@@ -63,11 +63,10 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
       setRetailPriceStr('');
       onSave();
       onClose();
-    } catch (err: any) {
-      // iOS Centered Alert Modal on errors
+    } catch (err: unknown) {
       setAlertConfig({
         title: 'Transaction Error',
-        message: err.message || 'Failed to complete sale.',
+        message: err instanceof Error ? err.message : 'Failed to complete sale.',
       });
     } finally {
       setIsSubmitting(false);

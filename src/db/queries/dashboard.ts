@@ -1,27 +1,33 @@
+import { sql, eq } from 'drizzle-orm';
 import { getDb } from '../client';
 import { transactions } from '../schema';
+import type { DashboardMetrics } from '../types';
 
 /**
  * Calculates and returns the dynamically aggregated financial metrics from the transactions table.
+ * Uses SQL aggregate functions for efficient computation.
  */
-export async function fetchAggregatedMetrics() {
+export async function fetchAggregatedMetrics(): Promise<DashboardMetrics> {
   const db = getDb();
-  const allTx = await db.select().from(transactions);
-  
-  let tailoringIncome = 0;
-  let tailoringExpense = 0;
-  let clothingIncome = 0;
-  let clothingOverhead = 0;
-  let personalExpense = 0;
 
-  for (const t of allTx) {
-    if (t.status === 'refunded') continue;
-    if (t.category === 'tailoring_income') tailoringIncome += t.amount;
-    if (t.category === 'tailoring_expense') tailoringExpense += t.amount;
-    if (t.category === 'clothing_income') clothingIncome += t.amount;
-    if (t.category === 'clothing_overhead') clothingOverhead += t.amount;
-    if (t.category === 'personal_expense') personalExpense += t.amount;
+  const rows = await db.select({
+    category: transactions.category,
+    total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`
+  })
+    .from(transactions)
+    .where(eq(transactions.status, 'active'))
+    .groupBy(transactions.category);
+
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    totals[row.category] = Number(row.total);
   }
+
+  const tailoringIncome = totals['tailoring_income'] || 0;
+  const tailoringExpense = totals['tailoring_expense'] || 0;
+  const clothingIncome = totals['clothing_income'] || 0;
+  const clothingOverhead = totals['clothing_overhead'] || 0;
+  const personalExpense = totals['personal_expense'] || 0;
 
   const tailoringNet = tailoringIncome - tailoringExpense;
   const clothingNet = clothingIncome - clothingOverhead;
