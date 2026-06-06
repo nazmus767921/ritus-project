@@ -1,7 +1,9 @@
+import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../client';
 import { shipments, inventoryItems, transactions } from '../schema';
 
 export interface ShipmentItemInput {
+  id?: number;
   brand: string;
   quantity: number;
   wholesaleCost: number; // Scaled integer (Poisha)
@@ -46,10 +48,108 @@ export async function createShipmentTransaction(
         amount: courierFee,
         category: 'clothing_overhead',
         description: `Shipment #${insertedShipment.id} Courier Fee Overhead`,
-        createdAt: deliveryDate
+        createdAt: deliveryDate,
+        status: 'active'
       });
     }
 
     return insertedShipment;
   });
+}
+
+/**
+ * Deletes a shipment and its associated courier fee transaction.
+ * Cascade deletes inventory items automatically.
+ */
+export async function deleteShipment(shipmentId: number) {
+  const db = getDb();
+  return await db.transaction(async (tx: any) => {
+    // 1. Delete associated courier fee transaction
+    await tx.delete(transactions)
+      .where(eq(transactions.description, `Shipment #${shipmentId} Courier Fee Overhead`));
+      
+    // 2. Delete shipment header (cascades to inventory items)
+    await tx.delete(shipments).where(eq(shipments.id, shipmentId));
+  });
+}
+
+/**
+ * Updates an existing shipment, adjusts inventory items, and updates the courier fee transaction.
+ */
+export async function updateShipment(
+  shipmentId: number,
+  courierFee: number,
+  deliveryDate: Date,
+  items: ShipmentItemInput[]
+) {
+  const db = getDb();
+  return await db.transaction(async (tx: any) => {
+    // 1. Update Shipment Header
+    await tx.update(shipments)
+      .set({ courierFee, deliveryDate })
+      .where(eq(shipments.id, shipmentId));
+
+    // 2. Fetch existing inventory items for this shipment
+    const existingItems = await tx.select().from(inventoryItems).where(eq(inventoryItems.shipmentId, shipmentId));
+    const existingIds = existingItems.map((item: any) => item.id);
+
+    // 3. Delete items that are no longer in the input list
+    const inputIds = items.map(i => i.id).filter(Boolean) as number[];
+    const toDelete = existingIds.filter((id: any) => !inputIds.includes(id));
+    for (const delId of toDelete) {
+      await tx.delete(inventoryItems).where(eq(inventoryItems.id, delId));
+    }
+
+    // 4. Update or Insert items
+    for (const item of items) {
+      if (item.id) {
+        await tx.update(inventoryItems)
+          .set({
+            brand: item.brand,
+            quantity: item.quantity,
+            wholesaleCost: item.wholesaleCost,
+            trueCost: item.trueCost
+          })
+          .where(eq(inventoryItems.id, item.id));
+      } else {
+        await tx.insert(inventoryItems).values({
+          shipmentId,
+          brand: item.brand,
+          quantity: item.quantity,
+          wholesaleCost: item.wholesaleCost,
+          trueCost: item.trueCost
+        });
+      }
+    }
+
+    // 5. Update or Insert Courier Fee Transaction
+    const courierDesc = `Shipment #${shipmentId} Courier Fee Overhead`;
+    const [existingTx] = await tx.select().from(transactions).where(eq(transactions.description, courierDesc));
+    
+    if (courierFee > 0) {
+      if (existingTx) {
+        await tx.update(transactions)
+          .set({ amount: courierFee, createdAt: deliveryDate })
+          .where(eq(transactions.id, existingTx.id));
+      } else {
+        await tx.insert(transactions).values({
+          amount: courierFee,
+          category: 'clothing_overhead',
+          description: courierDesc,
+          createdAt: deliveryDate,
+          status: 'active'
+        });
+      }
+    } else if (existingTx) {
+      await tx.delete(transactions).where(eq(transactions.id, existingTx.id));
+    }
+  });
+}
+
+/**
+ * Retrieves all shipments, ordered by ID desc.
+ */
+export async function getShipments() {
+  const db = getDb();
+  return await db.select().from(shipments).orderBy(desc(shipments.id));
 }

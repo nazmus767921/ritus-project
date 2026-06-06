@@ -12,19 +12,25 @@ interface SellSheetProps {
     trueCost: number;
     quantity: number;
   } | null;
+  dynamicMargin: number;
 }
 
-export default function SellSheet({ isOpen, onClose, onSave, item }: SellSheetProps) {
+export default function SellSheet({ isOpen, onClose, onSave, item, dynamicMargin }: SellSheetProps) {
   const [retailPriceStr, setRetailPriceStr] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
 
+  // Calculate preferred selling price
+  const preferredPrice = item ? item.trueCost / (1 - dynamicMargin) : 0;
+
   // Prefill price suggestions or clear inputs on mount/item change
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && item) {
+      setRetailPriceStr((preferredPrice / 100).toFixed(2));
+    } else {
       setRetailPriceStr('');
     }
-  }, [isOpen, item]);
+  }, [isOpen, item, preferredPrice]);
 
   if (!isOpen || !item) return null;
 
@@ -107,14 +113,18 @@ export default function SellSheet({ isOpen, onClose, onSave, item }: SellSheetPr
               </span>
             </div>
 
-            <div className="border-t-2 border-black pt-3 grid grid-cols-2 gap-4 text-xs font-mono">
+            <div className="border-t-2 border-black pt-3 grid grid-cols-3 gap-2 text-[10px] font-mono">
               <div>
-                <span className="text-slate-600 block font-sans font-bold text-[9px] uppercase tracking-wider">Wholesale Cost</span>
+                <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Wholesale</span>
                 <span className="text-black font-extrabold">৳{(item.wholesaleCost / 100).toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-slate-600 block font-sans font-bold text-[9px] uppercase tracking-wider">True Unit Cost</span>
+                <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">True Cost</span>
                 <span className="text-green-600 font-extrabold">৳{(item.trueCost / 100).toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Pref Sell ({Math.round(dynamicMargin * 100)}%)</span>
+                <span className="text-purple-600 font-extrabold">৳{(preferredPrice / 100).toFixed(2)}</span>
               </div>
             </div>
           </div>

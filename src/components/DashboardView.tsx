@@ -1,4 +1,4 @@
-import { Scissors, Shirt, TrendingUp, Wallet, Package } from 'lucide-react';
+import { Scissors, Shirt, TrendingUp, Wallet, Package, AlertCircle } from 'lucide-react';
 
 interface DashboardViewProps {
   metrics: {
@@ -15,9 +15,17 @@ interface DashboardViewProps {
     quantity: number;
   }[];
   onSellClick: (item: any) => void;
+  safetyPocketTarget: number;
+  dynamicMargin: number;
 }
 
-export default function DashboardView({ metrics, inventoryItems, onSellClick }: DashboardViewProps) {
+export default function DashboardView({
+  metrics,
+  inventoryItems,
+  onSellClick,
+  safetyPocketTarget,
+  dynamicMargin
+}: DashboardViewProps) {
   // Format Poisha to Taka helper
   const formatCurrency = (amountInPoisha: number) => {
     const taka = amountInPoisha / 100;
@@ -67,11 +75,7 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
       };
     }
 
-    // 2. Out of stock / Low stock warning
-    const lowStockItems = inventoryItems.filter(item => item.quantity <= 3);
-    const hasLowStock = lowStockItems.length > 0;
-    
-    // 3. Safety Pocket status checks
+    // 2. Safety Pocket status checks
     if (metrics.safetyPocket < 0) {
       return {
         image: '/tailor_cat.png',
@@ -80,6 +84,18 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
       };
     }
 
+    // 3. Safety Pocket below target setting warning
+    if (metrics.safetyPocket < safetyPocketTarget) {
+      return {
+        image: '/tailor_cat.png',
+        dialogue: "আরে আপু, ক্যাশবাক্সের অবস্থা সুবিধার না! পকেটে লাল বাতি জইলা যাইবো মিয়াও! হাত একটু টান করো! 🐾",
+        title: "টেইলর বিলাই (সাবধানী)"
+      };
+    }
+
+    // 4. Out of stock / Low stock warning
+    const lowStockItems = inventoryItems.filter(item => item.quantity <= 3);
+    const hasLowStock = lowStockItems.length > 0;
     if (hasLowStock) {
       return {
         image: '/tailor_cat.png',
@@ -88,7 +104,8 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
       };
     }
 
-    if (metrics.safetyPocket >= 5000) { // 50 Taka
+    // 5. Safety Pocket is high
+    if (metrics.safetyPocket >= 500000) { // 5,000 Taka (500000 Poisha)
       return {
         image: '/tailor_cat.png',
         dialogue: "পুরা ক্যালাও আপু! ক্যাশবাক্সে কড়কড়ে টাকা রেডি! নতুন কাপ্তান বা লট আমদানির টাইম আইসা গেছে, কোপায় দাও মিয়াও! 🧵",
@@ -98,7 +115,7 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
 
     return {
       image: '/tailor_cat.png',
-      dialogue: "মিয়াও! ক্যাশবাক্সের অবস্থা সুবিধার না আপু। হাত একটু টান করো, নাইলে ব্যবসা পুরা লাল বাতি হইয়া যাইবো! 🐾",
+      dialogue: "মিয়াও! ক্যাশবাক্সের অবস্থা সুবিধার না আপু। হাত একটু টান করো, ব্যবসা পুরা লাল বাতি হইয়া যাইবো! 🐾",
       title: "টেইলর বিলাই (সাবধানী)"
     };
   };
@@ -133,6 +150,19 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
           </div>
         </div>
       </section>
+
+      {/* Target Safety Pocket Warning Banner */}
+      {metrics.safetyPocket < safetyPocketTarget && (
+        <section className="bg-red-400 rounded-2xl border-[3px] border-black p-4 shadow-neobrutal-sm flex gap-3 text-black text-xs sm:text-sm select-none font-sans font-bold">
+          <AlertCircle className="w-5 h-5 shrink-0 text-black stroke-[2.5px]" />
+          <div>
+            <p className="uppercase tracking-wider">Budget Alert: Safety Pocket Critical</p>
+            <p className="mt-1 text-xs font-medium text-slate-900 leading-normal">
+              The current Safety Pocket balance ({formatCurrency(metrics.safetyPocket)}) has fallen below your target threshold of {formatCurrency(safetyPocketTarget)}. Consider limiting personal spent.
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* 2x2 Metrics Grid */}
       <section className="grid grid-cols-2 gap-4">
@@ -197,6 +227,9 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
                 badgeLabel = `${item.quantity} in Stock`;
               }
 
+              // Calculate preferred selling price
+              const preferredPrice = item.trueCost / (1 - dynamicMargin);
+
               return (
                 <div 
                   key={item.id} 
@@ -210,9 +243,10 @@ export default function DashboardView({ metrics, inventoryItems, onSellClick }: 
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-4 text-[11px] font-mono text-slate-700">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono text-slate-700">
                       <span>Wholesale: <strong className="text-black font-extrabold">৳{(item.wholesaleCost / 100).toFixed(2)}</strong></span>
                       <span>True Cost: <strong className="text-green-600 font-extrabold">৳{(item.trueCost / 100).toFixed(2)}</strong></span>
+                      <span>Pref Sell: <strong className="text-purple-600 font-extrabold">৳{(preferredPrice / 100).toFixed(2)}</strong></span>
                     </div>
                   </div>
 

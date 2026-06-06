@@ -1,41 +1,64 @@
 import { useState, useEffect } from 'react';
-import { initDb, getDb } from './db/client';
-import { transactions } from './db/schema';
-import { calculateOptionA } from './lib/math/allocator';
-import { Terminal, Database, Calculator, RefreshCw, CheckCircle2, AlertCircle, Plus, DollarSign, Package, LayoutDashboard } from 'lucide-react';
-import { getTransactions } from './db/queries/transactions';
+import { initDb } from './db/client';
+import { 
+  RefreshCw, CheckCircle2, AlertCircle, Plus, DollarSign, Package, 
+  LayoutDashboard, BarChart3, Settings, Download, Upload, RotateCcw, Edit2, Trash2, Undo2, Database
+} from 'lucide-react';
+
+import { getTransactions, deleteTransaction, refundTransaction } from './db/queries/transactions';
 import { getInventoryItems } from './db/queries/inventory';
+import { getShipments, deleteShipment } from './db/queries/shipments';
 import { fetchAggregatedMetrics } from './db/queries/dashboard';
+import { getSetting, setSetting } from './db/queries/settings';
+
 import TransactionForm from './components/TransactionForm';
 import ShipmentForm from './components/ShipmentForm';
 import DashboardView from './components/DashboardView';
 import SellSheet from './components/SellSheet';
+import ReportsView from './components/ReportsView';
+
+import { calculateDynamicMargin } from './lib/math/margin';
+import { 
+  exportDbToJson, importDbFromJson, triggerManualDownload, 
+  autoBackupLocal, restoreFromAutoBackup, hasAutoBackup 
+} from './lib/backup/backup';
 
 function App() {
   const [dbStatus, setDbStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [dbError, setDbError] = useState<string | null>(null);
+  
+  // Data States
   const [testRecords, setTestRecords] = useState<any[]>([]);
   const [inventoryRecords, setInventoryRecords] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'finances' | 'inventory'>('dashboard');
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isShipmentFormOpen, setIsShipmentFormOpen] = useState(false);
-  const [isSellOpen, setIsSellOpen] = useState(false);
-  const [selectedSellItem, setSelectedSellItem] = useState<any | null>(null);
+  const [shipmentRecords, setShipmentRecords] = useState<any[]>([]);
   const [metrics, setMetrics] = useState({
     tailoringNet: 0,
     clothingNet: 0,
     totalBusinessProfit: 0,
     safetyPocket: 0
   });
+
+  // Settings States
+  const [safetyPocketTarget, setSafetyPocketTarget] = useState<number>(0); // Poisha
+  const [safetyPocketTargetStr, setSafetyPocketTargetStr] = useState('0.00');
+  const [targetProfitMargin, setTargetProfitMargin] = useState<number>(0.20); // fraction
+  const [targetProfitMarginStr, setTargetProfitMarginStr] = useState('20');
+
+  // Navigation
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'finances' | 'inventory' | 'reports'>('dashboard');
+
+  // Modal / Sheet States
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isShipmentFormOpen, setIsShipmentFormOpen] = useState(false);
+  const [isSellOpen, setIsSellOpen] = useState(false);
   
-  // Math playground state
-  const [courierFee, setCourierFee] = useState<string>('150.00');
-  const [item1Qty, setItem1Qty] = useState<string>('10');
-  const [item1Cost, setItem1Cost] = useState<string>('120.00');
-  const [item2Qty, setItem2Qty] = useState<string>('5');
-  const [item2Cost, setItem2Cost] = useState<string>('200.00');
-  const [mathResult, setMathResult] = useState<number[]>([]);
-  const [mathError, setMathError] = useState<string | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<any | null>(null);
+  const [editingShipment, setEditingShipment] = useState<any | null>(null);
+  const [selectedSellItem, setSelectedSellItem] = useState<any | null>(null);
+
+  // Collapsible Settings & Backup sections in Finances Tab
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isBackupsOpen, setIsBackupsOpen] = useState(false);
 
   // Initialize DB on component mount
   useEffect(() => {
@@ -44,9 +67,8 @@ function App() {
         setDbStatus('loading');
         await initDb();
         setDbStatus('ready');
-        await refreshTestRecords();
-        await refreshInventoryRecords();
-        await refreshMetrics();
+        await loadSettings();
+        await refreshAll();
       } catch (err: any) {
         console.error('Failed to initialize local sqlite db:', err);
         setDbStatus('error');
@@ -56,44 +78,46 @@ function App() {
     startDatabase();
   }, []);
 
-  // Recalculate Option A whenever playground inputs change
-  useEffect(() => {
+  const loadSettings = async () => {
     try {
-      setMathError(null);
-      const feePoisha = Math.round(parseFloat(courierFee) * 100);
-      const qty1 = parseInt(item1Qty);
-      const cost1Poisha = Math.round(parseFloat(item1Cost) * 100);
-      const qty2 = parseInt(item2Qty);
-      const cost2Poisha = Math.round(parseFloat(item2Cost) * 100);
+      const pocketStr = await getSetting('safety_pocket_target', '0');
+      const marginStr = await getSetting('target_profit_margin', '20');
+      
+      const pocketVal = parseFloat(pocketStr) || 0;
+      const marginVal = (parseFloat(marginStr) || 20) / 100;
 
-      if (isNaN(feePoisha) || isNaN(qty1) || isNaN(cost1Poisha) || isNaN(qty2) || isNaN(cost2Poisha)) {
-        setMathResult([]);
-        return;
-      }
-
-      if (qty1 < 0 || qty2 < 0) {
-        throw new Error('Quantities cannot be negative.');
-      }
-
-      const items = [
-        { quantity: qty1, wholesaleCost: cost1Poisha },
-        { quantity: qty2, wholesaleCost: cost2Poisha }
-      ];
-
-      const trueCosts = calculateOptionA(feePoisha, items);
-      setMathResult(trueCosts);
-    } catch (err: any) {
-      setMathError(err.message);
-      setMathResult([]);
+      setSafetyPocketTarget(pocketVal * 100); // Poisha
+      setSafetyPocketTargetStr(pocketStr);
+      
+      setTargetProfitMargin(marginVal);
+      setTargetProfitMarginStr(marginStr);
+    } catch (err) {
+      console.error("Failed to load settings:", err);
     }
-  }, [courierFee, item1Qty, item1Cost, item2Qty, item2Cost]);
+  };
+
+  const handleSaveSafetyPocketTarget = async (valStr: string) => {
+    setSafetyPocketTargetStr(valStr);
+    const parsed = parseFloat(valStr) || 0;
+    setSafetyPocketTarget(parsed * 100);
+    await setSetting('safety_pocket_target', valStr);
+    await autoBackupLocal();
+  };
+
+  const handleSaveTargetProfitMargin = async (valStr: string) => {
+    setTargetProfitMarginStr(valStr);
+    const parsed = parseFloat(valStr) || 20;
+    setTargetProfitMargin(parsed / 100);
+    await setSetting('target_profit_margin', valStr);
+    await autoBackupLocal();
+  };
 
   const refreshTestRecords = async () => {
     try {
       const allTx = await getTransactions();
       setTestRecords(allTx);
     } catch (err) {
-      console.error('Error listing test transactions:', err);
+      console.error('Error listing transactions:', err);
     }
   };
 
@@ -106,6 +130,20 @@ function App() {
     }
   };
 
+  const refreshShipmentRecords = async () => {
+    try {
+      const shps = await getShipments();
+      const allItems = await getInventoryItems();
+      const shpsWithItems = shps.map((s: any) => ({
+        ...s,
+        items: allItems.filter((item: any) => item.shipmentId === s.id)
+      }));
+      setShipmentRecords(shpsWithItems);
+    } catch (err) {
+      console.error("Failed to list shipments:", err);
+    }
+  };
+
   const refreshMetrics = async () => {
     try {
       const data = await fetchAggregatedMetrics();
@@ -115,46 +153,130 @@ function App() {
     }
   };
 
-  const runInsertTest = async () => {
-    try {
-      const db = getDb();
-      const categories: ('personal_expense' | 'tailoring_expense' | 'clothing_overhead' | 'tailoring_income' | 'clothing_income')[] = [
-        'clothing_overhead',
-        'tailoring_income',
-        'personal_expense'
-      ];
-      
-      const category = categories[Math.floor(Math.random() * categories.length)];
-      const amount = Math.floor(Math.random() * 10000) + 500; // 5.00 to 105.00 Taka
-      const descriptions = {
-        clothing_overhead: 'Hanger batches',
-        tailoring_income: 'Suit tailoring service',
-        personal_expense: 'Lunch snack'
-      };
-      
-      await db.insert(transactions).values({
-        amount,
-        category,
-        description: descriptions[category as keyof typeof descriptions] || 'Diagnostic entry',
-        createdAt: new Date()
-      });
-      
-      await refreshTestRecords();
-      await refreshMetrics();
-    } catch (err: any) {
-      alert('Failed to insert record: ' + err.message);
+  const refreshAll = async () => {
+    await refreshTestRecords();
+    await refreshInventoryRecords();
+    await refreshShipmentRecords();
+    await refreshMetrics();
+    // Auto-backup to localStorage on every state update
+    await autoBackupLocal();
+  };
+
+  // Dynamic Margin Calculation
+  const dynamicMargin = (() => {
+    const itemMap = new Map(inventoryRecords.map(item => [item.id, item]));
+    const activeTx = testRecords.filter(t => t.status === 'active');
+    
+    // Total True Cost of goods sold
+    const costSold = activeTx
+      .filter(t => t.category === 'clothing_income' && t.inventoryItemId)
+      .reduce((sum, t) => {
+        const item = itemMap.get(t.inventoryItemId);
+        return sum + (item ? item.trueCost : 0);
+      }, 0);
+
+    // Total Clothing sales revenue
+    const revenueSold = activeTx
+      .filter(t => t.category === 'clothing_income')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Cost of current active inventory in stock
+    const costInventory = inventoryRecords
+      .reduce((sum, item) => sum + (item.trueCost * item.quantity), 0);
+
+    return calculateDynamicMargin(targetProfitMargin, costSold, revenueSold, costInventory);
+  })();
+
+  // Edit / Delete / Refund handlers
+  const handleEditTransaction = (tx: any) => {
+    setEditingTransaction(tx);
+    setIsFormOpen(true);
+  };
+
+  const handleDeleteTransaction = async (id: number) => {
+    if (confirm("Are you sure you want to delete this transaction? This will reverse any stock changes.")) {
+      try {
+        await deleteTransaction(id);
+        await refreshAll();
+      } catch (err: any) {
+        alert("Failed to delete transaction: " + err.message);
+      }
     }
   };
 
-  const clearTestRecords = async () => {
-    try {
-      const db = getDb();
-      await db.delete(transactions);
-      await refreshTestRecords();
-      await refreshMetrics();
-    } catch (err: any) {
-      alert('Failed to clear records: ' + err.message);
+  const handleRefundTransaction = async (id: number) => {
+    if (confirm("Mark this transaction as refunded? This will restore stock for clothing retail sales.")) {
+      try {
+        await refundTransaction(id);
+        await refreshAll();
+      } catch (err: any) {
+        alert("Failed to refund transaction: " + err.message);
+      }
     }
+  };
+
+  const handleEditShipment = (shp: any) => {
+    setEditingShipment(shp);
+    setIsShipmentFormOpen(true);
+  };
+
+  const handleDeleteShipment = async (id: number) => {
+    if (confirm("Delete this shipment? This will cascade delete its inventory items and remove its courier fee overhead transaction.")) {
+      try {
+        await deleteShipment(id);
+        await refreshAll();
+      } catch (err: any) {
+        alert("Failed to delete shipment: " + err.message);
+      }
+    }
+  };
+
+  // Backup Manual Exporter/Importer
+  const handleDownloadBackup = async () => {
+    try {
+      const jsonStr = await exportDbToJson();
+      triggerManualDownload(jsonStr);
+    } catch (err: any) {
+      alert("Failed to export backup: " + err.message);
+    }
+  };
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        await importDbFromJson(text);
+        await loadSettings();
+        await refreshAll();
+        alert("Backup restored successfully!");
+      } catch (err: any) {
+        alert("Restore failed: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleRestoreAutoBackup = async () => {
+    if (confirm("Restore the database to the last automated local backup snapshot?")) {
+      const ok = await restoreFromAutoBackup();
+      if (ok) {
+        await loadSettings();
+        await refreshAll();
+        alert("Automated local backup restored successfully!");
+      } else {
+        alert("Failed to restore. No valid auto-backup found.");
+      }
+    }
+  };
+
+  const formatCurrency = (amountInPoisha: number) => {
+    const taka = amountInPoisha / 100;
+    const sign = taka < 0 ? '-' : '';
+    return `${sign}৳${Math.abs(taka).toFixed(2)}`;
   };
 
   return (
@@ -170,7 +292,7 @@ function App() {
             <span className="w-3 h-3 rounded-full bg-green-500 border border-black inline-block"></span>
           </div>
           <h1 className="text-[11px] sm:text-xs font-display font-bold uppercase tracking-wider text-center flex-1 mx-2 truncate">
-            {activeTab === 'dashboard' ? 'ClothEx_Dashboard.exe' : activeTab === 'finances' ? 'ClothEx_Finances.exe' : 'ClothEx_Stock_Inventory.exe'}
+            {activeTab === 'dashboard' ? 'ClothEx_Dashboard.exe' : activeTab === 'finances' ? 'ClothEx_Finances.exe' : activeTab === 'inventory' ? 'ClothEx_Inventory.exe' : 'ClothEx_Reports.exe'}
           </h1>
           <div className="flex items-center gap-1.5 shrink-0">
             {dbStatus === 'loading' && (
@@ -207,187 +329,192 @@ function App() {
             <DashboardView
               metrics={metrics}
               inventoryItems={inventoryRecords}
+              safetyPocketTarget={safetyPocketTarget}
+              dynamicMargin={dynamicMargin}
               onSellClick={(item) => {
                 setSelectedSellItem(item);
                 setIsSellOpen(true);
               }}
             />
           ) : activeTab === 'finances' ? (
-            <div className="space-y-8 animate-fade-in">
-              {/* Section: SQLite & IndexedDB VFS Info */}
-              <section className="space-y-3">
-                <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                  <Database className="w-4 h-4 text-black" /> Relational Storage Layer
-                </h2>
-                <div className="bg-white rounded-xl p-4 border-2 border-black shadow-neobrutal-sm text-xs sm:text-sm space-y-2.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-800 font-bold">SQLite Engine</span>
-                    <span className="font-mono text-black font-bold bg-yellow-200 px-2 py-0.5 rounded-lg border-2 border-black">@vlcn.io/wa-sqlite (WASM)</span>
+            <div className="space-y-6 animate-fade-in">
+              {/* Settings Accordion Control Panel */}
+              <section className="bg-yellow-200 border-2 border-black rounded-xl overflow-hidden shadow-neobrutal-sm">
+                <button 
+                  onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                  className="w-full p-3 flex justify-between items-center text-xs font-sans font-bold uppercase tracking-wider text-black select-none border-b-2 border-transparent hover:bg-yellow-300/50 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Settings className="w-4 h-4" /> Business Target Settings
+                  </span>
+                  <span>{isSettingsOpen ? '[ - ]' : '[ + ]'}</span>
+                </button>
+                
+                {isSettingsOpen && (
+                  <div className="p-4 border-t-2 border-black bg-white space-y-4 animate-fade-in">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Budget goal */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-sans font-extrabold text-slate-700 uppercase">Target Safety Pocket (৳)</label>
+                        <input
+                          type="number"
+                          value={safetyPocketTargetStr}
+                          onChange={(e) => handleSaveSafetyPocketTarget(e.target.value)}
+                          placeholder="e.g. 5000.00"
+                          className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-mono text-xs text-black focus:outline-none min-h-[38px]"
+                        />
+                      </div>
+                      
+                      {/* Target profit margin */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-sans font-extrabold text-slate-700 uppercase">Expected Profit Margin (%)</label>
+                        <input
+                          type="number"
+                          value={targetProfitMarginStr}
+                          onChange={(e) => handleSaveTargetProfitMargin(e.target.value)}
+                          placeholder="e.g. 20"
+                          className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-mono text-xs text-black focus:outline-none min-h-[38px]"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-800 font-bold">Persistence Layer</span>
-                    <span className="font-mono text-black font-bold bg-yellow-200 px-2 py-0.5 rounded-lg border-2 border-black">IndexedDB VFS</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-800 font-bold">ORM Framework</span>
-                    <span className="font-mono text-black font-bold bg-yellow-200 px-2 py-0.5 rounded-lg border-2 border-black">Drizzle sqlite-proxy</span>
-                  </div>
-                </div>
+                )}
               </section>
 
-              {/* Section: Option A Math Calculator */}
-              <section className="space-y-3">
-                <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                  <Calculator className="w-4 h-4 text-black" /> Option A Allocator Playground
-                </h2>
-                <div className="bg-white rounded-xl p-5 border-2 border-black shadow-neobrutal space-y-4">
-                  {/* Courier fee input */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-sans font-bold text-slate-700 uppercase">Courier Delivery Fee (Taka)</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-black font-bold font-mono">৳</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 pl-7 pr-3 font-mono text-sm text-black focus:outline-none focus:bg-white focus:ring-0 min-h-[44px]"
-                        value={courierFee}
-                        onChange={(e) => setCourierFee(e.target.value)}
-                      />
+              {/* Backups Accordion Control Panel */}
+              <section className="bg-cyan-200 border-2 border-black rounded-xl overflow-hidden shadow-neobrutal-sm">
+                <button 
+                  onClick={() => setIsBackupsOpen(!isBackupsOpen)}
+                  className="w-full p-3 flex justify-between items-center text-xs font-sans font-bold uppercase tracking-wider text-black select-none border-b-2 border-transparent hover:bg-cyan-300/50 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Database className="w-4 h-4 text-black" /> Local Backup & Restore Utilities
+                  </span>
+                  <span>{isBackupsOpen ? '[ - ]' : '[ + ]'}</span>
+                </button>
+                
+                {isBackupsOpen && (
+                  <div className="p-4 border-t-2 border-black bg-white space-y-4 animate-fade-in">
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={handleDownloadBackup}
+                        className="flex-1 min-w-[150px] bg-green-300 hover:bg-green-400 active:translate-x-[1px] active:translate-y-[1px] text-xs font-sans font-bold uppercase py-2 px-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all flex items-center justify-center gap-1.5 min-h-[40px] cursor-pointer"
+                      >
+                        <Download className="w-4 h-4" /> Download JSON Backup
+                      </button>
+
+                      <label className="flex-1 min-w-[150px] bg-purple-300 hover:bg-purple-400 active:translate-x-[1px] active:translate-y-[1px] text-xs font-sans font-bold uppercase py-2 px-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all flex items-center justify-center gap-1.5 min-h-[40px] cursor-pointer text-center">
+                        <Upload className="w-4 h-4" /> Import Backup File
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={handleImportBackup}
+                          className="hidden"
+                        />
+                      </label>
+
+                      {hasAutoBackup() && (
+                        <button
+                          onClick={handleRestoreAutoBackup}
+                          className="flex-1 min-w-[150px] bg-yellow-300 hover:bg-yellow-400 active:translate-x-[1px] active:translate-y-[1px] text-xs font-sans font-bold uppercase py-2 px-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all flex items-center justify-center gap-1.5 min-h-[40px] cursor-pointer"
+                        >
+                          <RotateCcw className="w-4 h-4" /> Restore Last Auto-Backup
+                        </button>
+                      )}
                     </div>
                   </div>
-
-                  {/* Items configuration */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Item 1 */}
-                    <div className="bg-slate-50 p-3 rounded-xl border-2 border-black space-y-2.5">
-                      <p className="text-[10px] font-display font-bold text-black border-b-2 border-black pb-1 uppercase tracking-wide">Brand Batch A</p>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Quantity</label>
-                        <input
-                          type="number"
-                          className="w-full bg-white border-2 border-black rounded-lg py-1 px-2 font-mono text-xs text-black focus:outline-none min-h-[36px]"
-                          value={item1Qty}
-                          onChange={(e) => setItem1Qty(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Wholesale (৳)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="w-full bg-white border-2 border-black rounded-lg py-1 px-2 font-mono text-xs text-black focus:outline-none min-h-[36px]"
-                          value={item1Cost}
-                          onChange={(e) => setItem1Cost(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Item 2 */}
-                    <div className="bg-slate-50 p-3 rounded-xl border-2 border-black space-y-2.5">
-                      <p className="text-[10px] font-display font-bold text-black border-b-2 border-black pb-1 uppercase tracking-wide">Brand Batch B</p>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Quantity</label>
-                        <input
-                          type="number"
-                          className="w-full bg-white border-2 border-black rounded-lg py-1 px-2 font-mono text-xs text-black focus:outline-none min-h-[36px]"
-                          value={item2Qty}
-                          onChange={(e) => setItem2Qty(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-sans font-bold text-slate-600 uppercase">Wholesale (৳)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="w-full bg-white border-2 border-black rounded-lg py-1 px-2 font-mono text-xs text-black focus:outline-none min-h-[36px]"
-                          value={item2Cost}
-                          onChange={(e) => setItem2Cost(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Real-time Math Output Card */}
-                  {mathError ? (
-                    <div className="bg-red-300 border-2 border-black text-black text-xs font-semibold rounded-xl p-3 flex gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0 text-black" /> {mathError}
-                    </div>
-                  ) : mathResult.length > 0 ? (
-                    <div className="bg-green-300 border-2 border-black rounded-xl p-3.5 space-y-2.5 shadow-neobrutal-sm">
-                      <p className="text-xs font-display font-bold text-black uppercase tracking-wide">Option A Proportional Allocation Results</p>
-                      <div className="grid grid-cols-2 gap-4 text-xs font-mono">
-                        <div>
-                          <span className="text-slate-800 font-bold block">Batch A True Cost:</span>
-                          <p className="text-sm font-display font-extrabold text-black mt-0.5">৳{(mathResult[0] / 100).toFixed(2)} <span className="text-[10px] text-slate-700 font-normal">({mathResult[0]} Poisha)</span></p>
-                        </div>
-                        <div>
-                          <span className="text-slate-800 font-bold block">Batch B True Cost:</span>
-                          <p className="text-sm font-display font-extrabold text-black mt-0.5">৳{(mathResult[1] / 100).toFixed(2)} <span className="text-[10px] text-slate-700 font-normal">({mathResult[1]} Poisha)</span></p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+                )}
               </section>
 
-              {/* Section: Relational Drizzle Sandbox */}
+              {/* Transactions Log Section */}
               <section className="space-y-3">
-                <div className="flex justify-between items-center flex-wrap gap-2">
-                  <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                    <Terminal className="w-4 h-4 text-black" /> Drizzle ORM Relational Sandbox
-                  </h2>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={clearTestRecords}
-                      disabled={dbStatus !== 'ready'}
-                      className="text-xs bg-red-300 hover:bg-red-400 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] text-black font-sans font-bold py-1.5 px-3 rounded-xl border-2 border-black shadow-neobrutal-sm transition-all disabled:opacity-50 min-h-[44px]"
-                    >
-                      Clear DB
-                    </button>
-                    <button
-                      onClick={runInsertTest}
-                      disabled={dbStatus !== 'ready'}
-                      className="text-xs bg-purple-500 text-white hover:bg-purple-600 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] font-sans font-bold py-1.5 px-3 rounded-xl border-2 border-black shadow-neobrutal-sm transition-all disabled:opacity-50 min-h-[44px]"
-                    >
-                      Add Test Record
-                    </button>
-                  </div>
-                </div>
+                <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <DollarSign className="w-4.5 h-4.5 text-black" /> Financial Transactions Log
+                </h2>
 
-                {/* Records List */}
-                <div className="bg-white rounded-xl border-2 border-black overflow-hidden shadow-neobrutal-sm">
+                <div className="bg-white rounded-xl border-[3px] border-black overflow-hidden shadow-neobrutal-sm">
                   {testRecords.length === 0 ? (
                     <div className="p-8 text-center text-slate-500 text-sm">
-                      <Database className="w-8 h-8 mx-auto mb-2 opacity-50 text-black" />
-                      No records stored yet. Click "Add Test Record" to run Drizzle insert commands.
+                      No records logged yet. Tap the "+" button to record your first transaction.
                     </div>
                   ) : (
-                    <div className="divide-y-2 divide-black max-h-60 overflow-y-auto">
-                      {testRecords.map((record) => (
-                        <div key={record.id} className="p-3.5 flex items-center justify-between text-xs hover:bg-yellow-50 transition-colors">
-                          <div className="space-y-1">
-                            <p className="font-sans font-bold text-black">{record.description}</p>
-                            <p className="text-slate-600 font-mono">{new Date(record.createdAt).toLocaleString()}</p>
+                    <div className="divide-y-2 divide-black max-h-[450px] overflow-y-auto">
+                      {testRecords.map((record) => {
+                        const isRefunded = record.status === 'refunded';
+                        return (
+                          <div 
+                            key={record.id} 
+                            className={`p-3.5 flex items-center justify-between gap-4 text-xs hover:bg-yellow-50/10 transition-colors ${
+                              isRefunded ? 'bg-slate-50 opacity-70' : ''
+                            }`}
+                          >
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className={`font-sans font-bold text-black truncate ${isRefunded ? 'line-through text-slate-500' : ''}`}>
+                                  {record.description}
+                                </p>
+                                {isRefunded && (
+                                  <span className="bg-red-400 text-black text-[8px] font-sans font-extrabold px-1.5 py-0.5 rounded border border-black uppercase tracking-wide shrink-0">
+                                    Refunded
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-slate-600 font-mono text-[10px]">
+                                {new Date(record.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            
+                            <div className="text-right space-y-1.5 shrink-0 flex flex-col items-end">
+                              <p className={`font-display font-bold text-black ${isRefunded ? 'line-through text-slate-400' : ''}`}>
+                                {formatCurrency(record.amount)}
+                              </p>
+                              
+                              <div className="flex gap-1.5 items-center">
+                                <span className="inline-block bg-slate-100 text-slate-700 font-sans font-bold text-[9px] px-1.5 py-0.5 rounded border border-black uppercase tracking-wider">
+                                  {record.category.replace('_', ' ')}
+                                </span>
+                                
+                                <button
+                                  onClick={() => handleEditTransaction(record)}
+                                  className="p-1 bg-white hover:bg-slate-100 border border-black rounded active:bg-slate-200"
+                                  title="Edit Transaction"
+                                >
+                                  <Edit2 className="w-3 h-3 text-black" />
+                                </button>
+
+                                {!isRefunded && (record.category === 'clothing_income' || record.category === 'tailoring_income') && (
+                                  <button
+                                    onClick={() => handleRefundTransaction(record.id)}
+                                    className="p-1 bg-yellow-200 hover:bg-yellow-300 border border-black rounded active:bg-yellow-400"
+                                    title="Refund/Return"
+                                  >
+                                    <Undo2 className="w-3 h-3 text-black" />
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => handleDeleteTransaction(record.id)}
+                                  className="p-1 bg-red-300 hover:bg-red-400 border border-black rounded active:bg-red-500"
+                                  title="Delete Transaction"
+                                >
+                                  <Trash2 className="w-3 h-3 text-red-700" />
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-right space-y-1 shrink-0">
-                            <p className="font-display font-bold text-black">৳{(record.amount / 100).toFixed(2)}</p>
-                            <span className="inline-block bg-yellow-200 text-black font-sans font-bold text-[10px] px-2 py-0.5 rounded-md border-2 border-black uppercase tracking-wide shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">
-                              {record.category.replace('_', ' ')}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
               </section>
             </div>
-          ) : (
+          ) : activeTab === 'inventory' ? (
             <div className="space-y-6 animate-fade-in">
-              {/* Section: Stock Grid / Cards */}
+              {/* Summary Metrics */}
               <div className="flex justify-between items-center">
                 <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                  <Package className="w-4 h-4 text-black" /> Active Stock Items
+                  <Package className="w-4 h-4 text-black" /> Active Stock Batches
                 </h2>
                 <span className="text-xs font-sans font-bold text-slate-600">
                   Total Batches: {inventoryRecords.length}
@@ -403,7 +530,6 @@ function App() {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {inventoryRecords.map((item) => {
-                    // Badge configuration based on stock count
                     let badgeClass = '';
                     let badgeLabel = '';
                     if (item.quantity === 0) {
@@ -417,6 +543,9 @@ function App() {
                       badgeLabel = `${item.quantity} in Stock`;
                     }
 
+                    // Calculate preferred price
+                    const preferredPrice = item.trueCost / (1 - dynamicMargin);
+
                     return (
                       <div key={item.id} className="bg-white rounded-xl border-2 border-black p-4 shadow-neobrutal-sm flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-neobrutal transition-all duration-200">
                         <div className="flex justify-between items-start gap-2 mb-3">
@@ -429,14 +558,18 @@ function App() {
                           </span>
                         </div>
 
-                        <div className="border-t-2 border-black pt-3 grid grid-cols-2 gap-3 text-xs font-mono">
+                        <div className="border-t-2 border-black pt-3 grid grid-cols-3 gap-2 text-[10px] font-mono">
                           <div>
-                            <span className="text-slate-600 block font-sans font-bold text-[9px] uppercase tracking-wider">Wholesale</span>
+                            <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Wholesale</span>
                             <span className="text-black font-extrabold">৳{(item.wholesaleCost / 100).toFixed(2)}</span>
                           </div>
                           <div>
-                            <span className="text-slate-600 block font-sans font-bold text-[9px] uppercase tracking-wider">True Cost</span>
+                            <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">True Cost</span>
                             <span className="text-green-600 font-extrabold">৳{(item.trueCost / 100).toFixed(2)}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-600 block font-sans font-bold text-[8px] uppercase tracking-wider">Pref Sell</span>
+                            <span className="text-purple-600 font-extrabold">৳{(preferredPrice / 100).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -444,26 +577,82 @@ function App() {
                   })}
                 </div>
               )}
+
+              {/* Shipments Log Section */}
+              <section className="space-y-3 pt-4 border-t-2 border-slate-300">
+                <h2 className="text-xs font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <Database className="w-4.5 h-4.5 text-black" /> Shipments Intake Log
+                </h2>
+
+                <div className="bg-white rounded-xl border-[3px] border-black overflow-hidden shadow-neobrutal-sm">
+                  {shipmentRecords.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500 text-sm">
+                      No shipments imported yet. Tap the "+" button to import a shipment.
+                    </div>
+                  ) : (
+                    <div className="divide-y-2 divide-black max-h-[300px] overflow-y-auto">
+                      {shipmentRecords.map((shp) => (
+                        <div key={shp.id} className="p-3.5 flex items-center justify-between gap-4 text-xs hover:bg-yellow-50/10 transition-colors">
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <h3 className="font-sans font-bold text-black">
+                              Shipment #{shp.id} (Courier Fee: {formatCurrency(shp.courierFee)})
+                            </h3>
+                            <p className="text-slate-600 font-mono text-[10px]">
+                              Date: {new Date(shp.deliveryDate).toLocaleDateString()} | Batches: {shp.items?.length || 0}
+                            </p>
+                          </div>
+                          <div className="flex gap-1.5 items-center shrink-0">
+                            <button
+                              onClick={() => handleEditShipment(shp)}
+                              className="p-1.5 bg-white hover:bg-slate-100 border border-black rounded active:bg-slate-200 min-h-[32px] min-w-[32px] flex items-center justify-center cursor-pointer"
+                              title="Edit Shipment"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 text-black" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteShipment(shp.id)}
+                              className="p-1.5 bg-red-300 hover:bg-red-400 border border-black rounded active:bg-red-500 min-h-[32px] min-w-[32px] flex items-center justify-center cursor-pointer"
+                              title="Delete Shipment"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-red-700" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
             </div>
+          ) : (
+            <ReportsView
+              transactions={testRecords}
+              inventoryItems={inventoryRecords}
+              targetMargin={targetProfitMargin}
+            />
           )}
         </div>
       </div>
 
       {/* Floating Action Button (fixed position above tab bar) */}
-      <button
-        onClick={() => {
-          if (activeTab === 'inventory') {
-            setIsShipmentFormOpen(true);
-          } else {
-            setIsFormOpen(true);
-          }
-        }}
-        disabled={dbStatus !== 'ready'}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-purple-600 text-white rounded-full border-[3px] border-black shadow-neobrutal-sm hover:shadow-neobrutal active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center transition-all z-40 disabled:opacity-50 disabled:pointer-events-none"
-        aria-label={activeTab === 'inventory' ? 'Import Shipment' : 'Add Transaction'}
-      >
-        <Plus className="w-7 h-7 stroke-[3px]" />
-      </button>
+      {activeTab !== 'reports' && (
+        <button
+          onClick={() => {
+            if (activeTab === 'inventory') {
+              setEditingShipment(null);
+              setIsShipmentFormOpen(true);
+            } else {
+              setEditingTransaction(null);
+              setIsFormOpen(true);
+            }
+          }}
+          disabled={dbStatus !== 'ready'}
+          className="fixed bottom-24 right-6 w-14 h-14 bg-purple-600 text-white rounded-full border-[3px] border-black shadow-neobrutal-sm hover:shadow-neobrutal active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center transition-all z-40 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+          aria-label={activeTab === 'inventory' ? 'Import Shipment' : 'Add Transaction'}
+        >
+          <Plus className="w-7 h-7 stroke-[3px]" />
+        </button>
+      )}
 
       {/* Neobrutalist Bottom Tab Bar */}
       <div className="fixed bottom-4 left-4 right-4 bg-white border-[3px] border-black rounded-2xl py-2.5 px-4 flex justify-around items-center z-40 shadow-neobrutal min-h-[68px] max-w-2xl mx-auto">
@@ -500,27 +689,41 @@ function App() {
           <Package className="w-5 h-5 shrink-0" />
           <span>Inventory</span>
         </button>
+        <button
+          onClick={() => setActiveTab('reports')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-sans font-bold uppercase tracking-wider min-h-[44px] min-w-[64px] justify-center transition-all rounded-xl border-2 ${
+            activeTab === 'reports'
+              ? 'bg-purple-600 text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+              : 'text-slate-700 border-transparent hover:bg-slate-100 active:translate-y-[1px]'
+          }`}
+        >
+          <BarChart3 className="w-5 h-5 shrink-0" />
+          <span>Reports</span>
+        </button>
       </div>
 
       {/* Financial Logger Sheet */}
       <TransactionForm
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onSave={async () => {
-          await refreshTestRecords();
-          await refreshMetrics();
+        onClose={() => {
+          setIsFormOpen(false);
+          setEditingTransaction(null);
         }}
+        onSave={refreshAll}
+        transaction={editingTransaction}
+        inventoryItems={inventoryRecords}
+        dynamicMargin={dynamicMargin}
       />
 
       {/* Shipment Intake Sheet */}
       <ShipmentForm
         isOpen={isShipmentFormOpen}
-        onClose={() => setIsShipmentFormOpen(false)}
-        onSave={async () => {
-          await refreshInventoryRecords();
-          await refreshTestRecords(); // In case a courier fee is logged under transactions
-          await refreshMetrics();
+        onClose={() => {
+          setIsShipmentFormOpen(false);
+          setEditingShipment(null);
         }}
+        onSave={refreshAll}
+        shipment={editingShipment}
       />
 
       {/* Product Sale execution sheet */}
@@ -530,16 +733,12 @@ function App() {
           setIsSellOpen(false);
           setSelectedSellItem(null);
         }}
-        onSave={async () => {
-          await refreshInventoryRecords();
-          await refreshMetrics();
-          await refreshTestRecords();
-        }}
+        onSave={refreshAll}
         item={selectedSellItem}
+        dynamicMargin={dynamicMargin}
       />
     </div>
   );
 }
 
 export default App;
-
