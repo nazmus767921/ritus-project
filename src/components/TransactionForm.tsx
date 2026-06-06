@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Check } from 'lucide-react';
 import { insertTransaction, updateTransaction } from '../db/queries/transactions';
+import { calculatePreferredPrice } from '../lib/math/pricing';
 
 interface TransactionFormProps {
   isOpen: boolean;
@@ -8,7 +9,7 @@ interface TransactionFormProps {
   onSave: () => void;
   transaction?: any | null;
   inventoryItems?: any[];
-  dynamicMargin?: number;
+  targetMarkup?: number;
 }
 
 type TransactionType = 'income' | 'expense';
@@ -25,7 +26,7 @@ export default function TransactionForm({
   onSave,
   transaction = null,
   inventoryItems = [],
-  dynamicMargin = 0.20
+  targetMarkup = 0.20
 }: TransactionFormProps) {
   const [amountStr, setAmountStr] = useState('');
   const [description, setDescription] = useState('');
@@ -254,11 +255,11 @@ export default function TransactionForm({
                   const itemId = val ? parseInt(val) : null;
                   setInventoryItemId(itemId);
                   
-                  // Autofill preferred selling price based on dynamic margin
+                  // Autofill preferred selling price based on target markup
                   if (itemId) {
                     const selectedItem = inventoryItems.find(item => item.id === itemId);
                     if (selectedItem) {
-                      const preferredPrice = selectedItem.trueCost / (1 - dynamicMargin);
+                      const preferredPrice = calculatePreferredPrice(selectedItem.trueCost, targetMarkup);
                       setAmountStr((preferredPrice / 100).toFixed(2));
                       setDescription(`Sale: ${selectedItem.brand} (Cost: ৳${(selectedItem.trueCost / 100).toFixed(2)})`);
                     }
@@ -268,7 +269,7 @@ export default function TransactionForm({
               >
                 <option value="">-- Choose Stock Item --</option>
                 {activeItemsForDropdown.map(item => {
-                  const preferredPrice = item.trueCost / (1 - dynamicMargin);
+                  const preferredPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
                   return (
                     <option key={item.id} value={item.id}>
                       {item.brand} (Batch #{item.id}) - Qty: {item.quantity} - Pref: ৳{(preferredPrice / 100).toFixed(2)}

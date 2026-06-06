@@ -17,7 +17,7 @@ import DashboardView from './components/DashboardView';
 import SellSheet from './components/SellSheet';
 import ReportsView from './components/ReportsView';
 
-import { calculateDynamicMargin } from './lib/math/margin';
+import { calculatePreferredPrice } from './lib/math/pricing';
 import { 
   exportDbToJson, importDbFromJson, triggerManualDownload, 
   autoBackupLocal, restoreFromAutoBackup, hasAutoBackup 
@@ -41,8 +41,8 @@ function App() {
   // Settings States
   const [safetyPocketTarget, setSafetyPocketTarget] = useState<number>(0); // Poisha
   const [safetyPocketTargetStr, setSafetyPocketTargetStr] = useState('0.00');
-  const [targetProfitMargin, setTargetProfitMargin] = useState<number>(0.20); // fraction
-  const [targetProfitMarginStr, setTargetProfitMarginStr] = useState('20');
+  const [targetMarkup, setTargetMarkup] = useState<number>(0.20); // fraction
+  const [targetMarkupStr, setTargetMarkupStr] = useState('20');
 
   // Navigation
   const [activeTab, setActiveTab] = useState<'dashboard' | 'finances' | 'inventory' | 'reports'>('dashboard');
@@ -81,16 +81,16 @@ function App() {
   const loadSettings = async () => {
     try {
       const pocketStr = await getSetting('safety_pocket_target', '0');
-      const marginStr = await getSetting('target_profit_margin', '20');
+      const markupStr = await getSetting('target_profit_margin', '20');
       
       const pocketVal = parseFloat(pocketStr) || 0;
-      const marginVal = (parseFloat(marginStr) || 20) / 100;
+      const markupVal = (parseFloat(markupStr) || 20) / 100;
 
       setSafetyPocketTarget(pocketVal * 100); // Poisha
       setSafetyPocketTargetStr(pocketStr);
       
-      setTargetProfitMargin(marginVal);
-      setTargetProfitMarginStr(marginStr);
+      setTargetMarkup(markupVal);
+      setTargetMarkupStr(markupStr);
     } catch (err) {
       console.error("Failed to load settings:", err);
     }
@@ -104,10 +104,10 @@ function App() {
     await autoBackupLocal();
   };
 
-  const handleSaveTargetProfitMargin = async (valStr: string) => {
-    setTargetProfitMarginStr(valStr);
+  const handleSaveTargetMarkup = async (valStr: string) => {
+    setTargetMarkupStr(valStr);
     const parsed = parseFloat(valStr) || 20;
-    setTargetProfitMargin(parsed / 100);
+    setTargetMarkup(parsed / 100);
     await setSetting('target_profit_margin', valStr);
     await autoBackupLocal();
   };
@@ -161,31 +161,6 @@ function App() {
     // Auto-backup to localStorage on every state update
     await autoBackupLocal();
   };
-
-  // Dynamic Margin Calculation
-  const dynamicMargin = (() => {
-    const itemMap = new Map(inventoryRecords.map(item => [item.id, item]));
-    const activeTx = testRecords.filter(t => t.status === 'active');
-    
-    // Total True Cost of goods sold
-    const costSold = activeTx
-      .filter(t => t.category === 'clothing_income' && t.inventoryItemId)
-      .reduce((sum, t) => {
-        const item = itemMap.get(t.inventoryItemId);
-        return sum + (item ? item.trueCost : 0);
-      }, 0);
-
-    // Total Clothing sales revenue
-    const revenueSold = activeTx
-      .filter(t => t.category === 'clothing_income')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // Cost of current active inventory in stock
-    const costInventory = inventoryRecords
-      .reduce((sum, item) => sum + (item.trueCost * item.quantity), 0);
-
-    return calculateDynamicMargin(targetProfitMargin, costSold, revenueSold, costInventory);
-  })();
 
   // Edit / Delete / Refund handlers
   const handleEditTransaction = (tx: any) => {
@@ -330,7 +305,7 @@ function App() {
               metrics={metrics}
               inventoryItems={inventoryRecords}
               safetyPocketTarget={safetyPocketTarget}
-              dynamicMargin={dynamicMargin}
+              targetMarkup={targetMarkup}
               onSellClick={(item) => {
                 setSelectedSellItem(item);
                 setIsSellOpen(true);
@@ -365,13 +340,13 @@ function App() {
                         />
                       </div>
                       
-                      {/* Target profit margin */}
+                      {/* Target markup */}
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-sans font-extrabold text-slate-700 uppercase">Expected Profit Margin (%)</label>
+                        <label className="text-[10px] font-sans font-extrabold text-slate-700 uppercase">Expected Markup (%)</label>
                         <input
                           type="number"
-                          value={targetProfitMarginStr}
-                          onChange={(e) => handleSaveTargetProfitMargin(e.target.value)}
+                          value={targetMarkupStr}
+                          onChange={(e) => handleSaveTargetMarkup(e.target.value)}
                           placeholder="e.g. 20"
                           className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-mono text-xs text-black focus:outline-none min-h-[38px]"
                         />
@@ -543,8 +518,7 @@ function App() {
                       badgeLabel = `${item.quantity} in Stock`;
                     }
 
-                    // Calculate preferred price
-                    const preferredPrice = item.trueCost / (1 - dynamicMargin);
+                    const preferredPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
 
                     return (
                       <div key={item.id} className="bg-white rounded-xl border-2 border-black p-4 shadow-neobrutal-sm flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-neobrutal transition-all duration-200">
@@ -628,7 +602,7 @@ function App() {
             <ReportsView
               transactions={testRecords}
               inventoryItems={inventoryRecords}
-              targetMargin={targetProfitMargin}
+              targetMarkup={targetMarkup}
             />
           )}
         </div>
@@ -712,7 +686,7 @@ function App() {
         onSave={refreshAll}
         transaction={editingTransaction}
         inventoryItems={inventoryRecords}
-        dynamicMargin={dynamicMargin}
+        targetMarkup={targetMarkup}
       />
 
       {/* Shipment Intake Sheet */}
@@ -735,7 +709,7 @@ function App() {
         }}
         onSave={refreshAll}
         item={selectedSellItem}
-        dynamicMargin={dynamicMargin}
+        targetMarkup={targetMarkup}
       />
     </div>
   );
