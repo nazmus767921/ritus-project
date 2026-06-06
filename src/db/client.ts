@@ -14,6 +14,8 @@ let dbInstance: any = null;
 let sqlite3Instance: any = null;
 let rawDbPtr: number = 0;
 
+let queryQueue = Promise.resolve();
+
 /**
  * Initializes the wa-sqlite database engine with IndexedDB persistence,
  * creates the physical schema tables if missing, and initializes Drizzle ORM.
@@ -102,56 +104,65 @@ export async function initDb() {
     );
   `);
 
-  // Build the Drizzle client bridge using the sqlite-proxy driver
+  // Build the Drizzle client bridge using the sqlite-proxy driver.
+  // Operations are serialized through a queue to prevent race conditions
+  // on the WASM temp buffer (tmpPtr) used by prepare_v2 and other internals.
   dbInstance = drizzle(
     async (sql, params, method) => {
-      const str = sqlite3.str_new(dbPtr, sql);
-      const sqlPtr = sqlite3.str_value(str);
-      const prepared = await sqlite3.prepare_v2(dbPtr, sqlPtr);
-
-      if (!prepared) {
-        sqlite3.str_finish(str);
-        return { rows: [] };
-      }
-
-      const stmt = prepared.stmt;
+      let release: (() => void) | undefined;
+      const prev = queryQueue;
+      queryQueue = new Promise<void>(resolve => { release = resolve; });
+      await prev;
 
       try {
-        if (params && params.length > 0) {
-          sqlite3.bind_collection(stmt, params);
-        }
+        const str = sqlite3.str_new(dbPtr, sql);
+        const sqlPtr = sqlite3.str_value(str);
+        const prepared = await sqlite3.prepare_v2(dbPtr, sqlPtr);
 
-        const rows: any[][] = [];
-        const isQuery = method !== 'run';
-
-        // 100 corresponds to SQLITE_ROW
-        while (await sqlite3.step(stmt) === 100) {
-          if (isQuery) {
-            const colCount = sqlite3.column_count(stmt);
-            const row: any[] = [];
-            for (let i = 0; i < colCount; i++) {
-              let val = sqlite3.column(stmt, i);
-              // Convert bigint to standard numbers to prevent serialization exceptions
-              if (typeof val === 'bigint') {
-                val = Number(val);
-              }
-              row.push(val);
-            }
-            rows.push(row);
-          }
-        }
-
-        if (isQuery) {
-          if (method === 'get') {
-            return { rows: rows[0] || [] };
-          }
-          return { rows };
-        } else {
+        if (!prepared) {
+          sqlite3.str_finish(str);
           return { rows: [] };
         }
+
+        const stmt = prepared.stmt;
+
+        try {
+          if (params && params.length > 0) {
+            sqlite3.bind_collection(stmt, params);
+          }
+
+          const rows: any[][] = [];
+          const isQuery = method !== 'run';
+
+          while (await sqlite3.step(stmt) === 100) {
+            if (isQuery) {
+              const colCount = sqlite3.column_count(stmt);
+              const row: any[] = [];
+              for (let i = 0; i < colCount; i++) {
+                let val = sqlite3.column(stmt, i);
+                if (typeof val === 'bigint') {
+                  val = Number(val);
+                }
+                row.push(val);
+              }
+              rows.push(row);
+            }
+          }
+
+          if (isQuery) {
+            if (method === 'get') {
+              return { rows: rows[0] || [] };
+            }
+            return { rows };
+          } else {
+            return { rows: [] };
+          }
+        } finally {
+          await sqlite3.finalize(stmt);
+          sqlite3.str_finish(str);
+        }
       } finally {
-        await sqlite3.finalize(stmt);
-        sqlite3.str_finish(str);
+        release?.();
       }
     },
     { schema }
