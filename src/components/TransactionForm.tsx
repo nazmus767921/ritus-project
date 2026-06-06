@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Scissors, Shirt, Wallet, Package, AlertCircle } from 'lucide-react';
 import { insertTransaction, updateTransaction } from '../db/queries/transactions';
 import { calculatePreferredPrice } from '../lib/math/pricing';
-import { roundPrice } from '../lib/math/rounding';
+import { roundPrice, formatCurrency } from '../lib/math/rounding';
 import type { TransactionRecord, InventoryItemRecord } from '../db/types';
 import BottomSheet from './BottomSheet';
 import SystemAlert from './SystemAlert';
@@ -56,7 +56,7 @@ export default function TransactionForm({
   useEffect(() => {
     if (isOpen) {
       if (transaction) {
-        setAmountStr((transaction.amount / 100).toFixed(2));
+        setAmountStr(`${Math.round(transaction.amount / 100)}`);
         setDescription(transaction.description);
         setCustomerName(transaction.customerName || '');
         setNotes(transaction.notes || '');
@@ -259,9 +259,9 @@ export default function TransactionForm({
                   const selectedItem = inventoryItems.find(item => item.id === itemId);
                   if (selectedItem) {
                     const preferredPrice = calculatePreferredPrice(selectedItem.trueCost, targetMarkup);
-                    setAmountStr((preferredPrice / 100).toFixed(2));
+                    setAmountStr(`${Math.round(preferredPrice / 100)}`);
                     if (!transaction) {
-                      setDescription(`Sale: ${selectedItem.brand} (Cost: ৳${(selectedItem.trueCost / 100).toFixed(2)})`);
+                      setDescription(`Sale: ${selectedItem.brand} (Cost: ${formatCurrency(selectedItem.trueCost)})`);
                     }
                   }
                 }
@@ -273,7 +273,7 @@ export default function TransactionForm({
                 const preferredPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
                 return (
                   <option key={item.id} value={item.id}>
-                    {item.brand} (Batch #{item.id}) - Qty: {item.quantity} - Pref: ৳{(preferredPrice / 100).toFixed(2)}
+                    {item.brand} (Batch #{item.id}) - Qty: {item.quantity} - Pref: {formatCurrency(preferredPrice)}
                   </option>
                 );
               })}
