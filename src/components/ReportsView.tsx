@@ -1,5 +1,6 @@
 import { TrendingUp, DollarSign, Percent, BarChart3, AlertCircle } from 'lucide-react';
 import { calculatePreferredPrice, calculateProfitMargin } from '../lib/math/pricing';
+import { formatCurrency } from '../lib/math/rounding';
 import type { TransactionRecord, InventoryItemRecord } from '../db/types';
 
 interface ReportsViewProps {
@@ -9,12 +10,6 @@ interface ReportsViewProps {
 }
 
 export default function ReportsView({ transactions, inventoryItems, targetMarkup }: ReportsViewProps) {
-  // Format Poisha to Taka helper
-  const formatCurrency = (amountInPoisha: number) => {
-    const taka = amountInPoisha / 100;
-    const sign = taka < 0 ? '-' : '';
-    return `${sign}৳${Math.abs(taka).toFixed(2)}`;
-  };
 
   const itemMap = new Map(inventoryItems.map(item => [item.id, item]));
 
@@ -38,7 +33,7 @@ export default function ReportsView({ transactions, inventoryItems, targetMarkup
     .filter(t => t.category === 'clothing_income' && t.inventoryItemId != null)
     .reduce((sum, t) => {
       const item = itemMap.get(t.inventoryItemId!);
-      return sum + (item ? item.trueCost : 0);
+      return sum + (item ? item.trueCost * (t.quantity ?? 1) : 0);
     }, 0);
 
   const actualMarginVal = calculateProfitMargin(clothingRevenue, clothingCost);
@@ -49,8 +44,8 @@ export default function ReportsView({ transactions, inventoryItems, targetMarkup
     if (!t.inventoryItemId) return true;
     const item = itemMap.get(t.inventoryItemId);
     if (!item) return true;
-    const targetPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
-    return t.amount >= targetPrice;
+    const targetUnitPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
+    return t.amount >= targetUnitPrice * (t.quantity ?? 1);
   });
   const meetRate = clothingSales.length > 0 ? (salesMeetingTarget.length / clothingSales.length) * 100 : 100;
 
@@ -74,7 +69,7 @@ export default function ReportsView({ transactions, inventoryItems, targetMarkup
       if (t.category === 'clothing_income') {
         monthlyData[monthKey].clothingRev += t.amount;
         if (item) {
-          monthlyData[monthKey].clothingCost += item.trueCost;
+          monthlyData[monthKey].clothingCost += item.trueCost * (t.quantity ?? 1);
         }
       }
     } else if (t.category === 'tailoring_expense' || t.category === 'clothing_overhead') {

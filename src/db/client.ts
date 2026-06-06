@@ -104,6 +104,26 @@ export async function initDb() {
     // Ignore error if column already exists
   }
 
+  // Migrate schema for transactions table additions (customer_name, notes)
+  try {
+    await sqlite3.exec(dbPtr, `ALTER TABLE transactions ADD COLUMN customer_name TEXT;`);
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
+  try {
+    await sqlite3.exec(dbPtr, `ALTER TABLE transactions ADD COLUMN notes TEXT;`);
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
+  // Migrate schema for transactions table additions (quantity)
+  try {
+    await sqlite3.exec(dbPtr, `ALTER TABLE transactions ADD COLUMN quantity INTEGER DEFAULT 1;`);
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
   // Create settings table
   await sqlite3.exec(dbPtr, `
     CREATE TABLE IF NOT EXISTS settings (
@@ -111,6 +131,32 @@ export async function initDb() {
       value TEXT NOT NULL
     );
   `);
+
+  // Data migration: convert clothing_income amount from unit price to total price
+  // Old code stored unit price as amount; new code stores total = unit_price * quantity
+  // Guarded by a settings key to run exactly once.
+  try {
+    const migrateSql = sqlite3.str_new(dbPtr, `SELECT value FROM settings WHERE key = 'mig_v2_amount_total'`);
+    const migratePtr = sqlite3.str_value(migrateSql);
+    const migratePrep = await sqlite3.prepare_v2(dbPtr, migratePtr);
+    let alreadyMigrated = true;
+    if (migratePrep) {
+      if (await sqlite3.step(migratePrep.stmt) === 100) {
+        alreadyMigrated = sqlite3.column(migratePrep.stmt, 0) === '1';
+      }
+      await sqlite3.finalize(migratePrep.stmt);
+    } else {
+      alreadyMigrated = false;
+    }
+    sqlite3.str_finish(migrateSql);
+
+    if (!alreadyMigrated) {
+      await sqlite3.exec(dbPtr, `UPDATE transactions SET amount = amount * COALESCE(NULLIF(quantity, 0), 1) WHERE category = 'clothing_income'`);
+      await sqlite3.exec(dbPtr, `INSERT INTO settings (key, value) VALUES ('mig_v2_amount_total', '1')`);
+    }
+  } catch (e) {
+    // ignore during initial setup when tables may not exist
+  }
 
   // Build the Drizzle client bridge using the sqlite-proxy driver.
   // Operations are serialized through a queue to prevent race conditions

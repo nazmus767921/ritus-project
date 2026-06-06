@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { Scissors, Shirt, Wallet, Package, AlertCircle } from 'lucide-react';
 import { insertTransaction, updateTransaction } from '../db/queries/transactions';
 import { calculatePreferredPrice } from '../lib/math/pricing';
-import { roundPrice } from '../lib/math/rounding';
+import { roundPrice, formatCurrency } from '../lib/math/rounding';
 import type { TransactionRecord, InventoryItemRecord } from '../db/types';
 import BottomSheet from './BottomSheet';
 import SystemAlert from './SystemAlert';
+import QuantityInput from './QuantityInput';
 
 interface TransactionFormProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export default function TransactionForm({
   const [type, setType] = useState<TransactionType>('income');
   const [category, setCategory] = useState<TransactionCategory>('tailoring_income');
   const [inventoryItemId, setInventoryItemId] = useState<number | null>(null);
+  const [quantity, setQuantity] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
 
@@ -56,12 +58,14 @@ export default function TransactionForm({
   useEffect(() => {
     if (isOpen) {
       if (transaction) {
-        setAmountStr((transaction.amount / 100).toFixed(2));
+        const editUnitPrice = Math.round(transaction.amount / (transaction.quantity ?? 1) / 100);
+        setAmountStr(`${editUnitPrice}`);
         setDescription(transaction.description);
         setCustomerName(transaction.customerName || '');
         setNotes(transaction.notes || '');
         setCategory(transaction.category);
         setInventoryItemId(transaction.inventoryItemId || null);
+        setQuantity(transaction.quantity ?? 1);
 
         const isIncome = transaction.category === 'tailoring_income' || transaction.category === 'clothing_income';
         setType(isIncome ? 'income' : 'expense');
@@ -70,6 +74,7 @@ export default function TransactionForm({
         setDescription('');
         setCustomerName('');
         setNotes('');
+        setQuantity(1);
         setType('income');
         setCategory('tailoring_income');
         setInventoryItemId(null);
@@ -105,26 +110,30 @@ export default function TransactionForm({
         throw new Error('Please select a stock item for clothing sales.');
       }
 
+      const totalAmount = category === 'clothing_income' ? roundedAmount * quantity : roundedAmount;
+
       if (transaction) {
         await updateTransaction(transaction.id, {
-          amount: roundedAmount,
+          amount: totalAmount,
           category,
           description: description.trim(),
           customerName: customerName.trim() || null,
           notes: notes.trim() || null,
           createdAt: transaction.createdAt,
           status: transaction.status,
-          inventoryItemId: category === 'clothing_income' ? inventoryItemId : null
+          inventoryItemId: category === 'clothing_income' ? inventoryItemId : null,
+          quantity: category === 'clothing_income' ? quantity : 1
         });
       } else {
         await insertTransaction({
-          amount: roundedAmount,
+          amount: totalAmount,
           category,
           description: description.trim(),
           customerName: customerName.trim() || null,
           notes: notes.trim() || null,
           createdAt: new Date(),
-          inventoryItemId: category === 'clothing_income' ? inventoryItemId : null
+          inventoryItemId: category === 'clothing_income' ? inventoryItemId : null,
+          quantity: category === 'clothing_income' ? quantity : 1
         });
       }
 
@@ -132,6 +141,7 @@ export default function TransactionForm({
       setDescription('');
       setCustomerName('');
       setNotes('');
+      setQuantity(1);
       setType('income');
       setCategory('tailoring_income');
       setInventoryItemId(null);
@@ -259,9 +269,9 @@ export default function TransactionForm({
                   const selectedItem = inventoryItems.find(item => item.id === itemId);
                   if (selectedItem) {
                     const preferredPrice = calculatePreferredPrice(selectedItem.trueCost, targetMarkup);
-                    setAmountStr((preferredPrice / 100).toFixed(2));
+                    setAmountStr(`${Math.round(preferredPrice / 100)}`);
                     if (!transaction) {
-                      setDescription(`Sale: ${selectedItem.brand} (Cost: ৳${(selectedItem.trueCost / 100).toFixed(2)})`);
+                      setDescription(`Sale: ${selectedItem.brand} (Cost: ${formatCurrency(selectedItem.trueCost)})`);
                     }
                   }
                 }
@@ -273,11 +283,18 @@ export default function TransactionForm({
                 const preferredPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
                 return (
                   <option key={item.id} value={item.id}>
-                    {item.brand} (Batch #{item.id}) - Qty: {item.quantity} - Pref: ৳{(preferredPrice / 100).toFixed(2)}
+                    {item.brand} (Batch #{item.id}) - Qty: {item.quantity} - Pref: {formatCurrency(preferredPrice)}
                   </option>
                 );
               })}
             </select>
+          </div>
+        )}
+
+        {category === 'clothing_income' && (
+          <div className="flex flex-col gap-1.5 animate-fade-in">
+            <label className="text-xs font-sans font-bold text-slate-700 uppercase">Quantity</label>
+            <QuantityInput value={quantity} onChange={setQuantity} min={1} max={inventoryItemId ? Math.max(inventoryItems.find(i => i.id === inventoryItemId)?.quantity ?? 1, transaction ? (transaction.quantity ?? 1) : 0) : undefined} />
           </div>
         )}
 

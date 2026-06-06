@@ -15,6 +15,7 @@ export interface TransactionRecord {
   customerName: string | null;
   notes: string | null;
   createdAt: Date;
+  quantity: number;
   status: TransactionStatus;
   inventoryItemId: number | null;
 }
