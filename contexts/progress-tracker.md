@@ -4,7 +4,7 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-- **Development Phase 06**: CRUD, Refunds, Backups, Markup Pricing & Reports (New Features)
+- **Refactor: Shipment Workflow & UI Revamp**: Transaction editing bug fix, inventory metrics, Import Shipment accordion/bottom sheet, compact mascot
 
 ## Current Goal
 
@@ -61,13 +61,6 @@ Update this file after every meaningful implementation change.
   - [x] Integrated the **Tailor Cat** shopkeeper mascot using the exact bread-holding cat image provided by the user, setting the card background color to matching `#fceec7` to blend in, with amped-up Dhakaiya merchant slang in Bengali (`আপু`, `বউনি`, `লাল বাতি`, `ফতুর`, `ক্যালাও`) reacting dynamically on the Metrics Dashboard.
   - [x] Verified full unit test execution and clean production compilation.
   - [x] Merged feature branch (`feature/03-inventory-shipment-manager-spec`) into the default `main` branch and verified remote push.
-
-## In Progress
-
-- None.
-
-## Completed
-
 - **Refactor: Stock Tracking, Math Refactoring & UI Redesign**:
   - [x] Added `initialQuantity` column to schema and InventoryItemRecord type
   - [x] Created rounding utility (`roundStock`, `roundPrice`) and applied across allocator, pricing, shipment queries, and inventory queries
@@ -76,9 +69,31 @@ Update this file after every meaningful implementation change.
   - [x] Updated DashboardView badges to `[initial / remaining]` format
   - [x] Added data migration in `client.ts` for existing `initial_quantity` column
 
-## Next Up
+## In Progress
 
-- None.
+- **Refactor: Shipment Workflow & UI Revamp**:
+  - [x] Added `customer_name` and `notes` columns to `transactions` schema
+  - [x] Updated `TransactionRecord` type, insert/update queries, and `executeProductSale` to use separate columns
+  - [x] Added `customerName` and `notes` fields to `TransactionForm`
+  - [x] Disabled transaction type toggle during editing with informational banner
+  - [x] Fixed stock item dropdown to not overwrite description on edit
+  - [x] Added inventory metrics (Total Available, Sold, Remaining) to dashboard
+   - [x] Compacted Tailor Cat mascot with rounded circle avatar
+   - [x] Revamped `ShipmentForm` into iOS-style bottom sheet with accordion and multi-step review flow
+   - [x] Updated transaction listing in App.tsx to show customer name and notes
+- **UI Tweaks & Component Refactoring**:
+   - [x] Created reusable `BottomSheet` component with iOS-style header and motion spring animation
+   - [x] Created reusable `SystemAlert` component (extracted from 3 duplicated instances)
+   - [x] Refactored `TransactionForm` and `SellSheet` from centered dialogs to BottomSheet pattern
+   - [x] Refactored `ShipmentForm` to use shared BottomSheet and SystemAlert components
+   - [x] Redesigned accordion collapsed state — compact icon-labeled neobrutal chips (Layers/Tag/Crosshair)
+   - [x] Fixed `calculateOptionA` to return 0 for zero-cost items (fixes 1 Taka bug on empty rows)
+   - [x] Fixed Review validation gate — changed `some()` to `every()` for strict row validation
+   - [x] Added Total Wholesale Price to Final Approval summary sheet
+   - [x] Implemented interactive mascot chat bubble with motion spring expand/shrink + 5s auto-collapse
+   - [x] Installed `motion` library (replaces deprecated framer-motion)
+
+## Next Up
 
 ## Open Questions
 

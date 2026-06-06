@@ -1,6 +1,6 @@
 import { sql, eq } from 'drizzle-orm';
 import { getDb } from '../client';
-import { transactions } from '../schema';
+import { transactions, inventoryItems } from '../schema';
 import type { DashboardMetrics } from '../types';
 
 /**
@@ -34,10 +34,19 @@ export async function fetchAggregatedMetrics(): Promise<DashboardMetrics> {
   const totalBusinessProfit = tailoringNet + clothingNet;
   const safetyPocket = totalBusinessProfit - personalExpense;
 
+  // Inventory metrics
+  const allItems = await db.select().from(inventoryItems) as { initialQuantity: number; quantity: number }[];
+  const totalAvailableStock = allItems.reduce((sum, item) => sum + item.initialQuantity, 0);
+  const totalRemainingStock = allItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalSoldQuantity = totalAvailableStock - totalRemainingStock;
+
   return {
     tailoringNet,
     clothingNet,
     totalBusinessProfit,
-    safetyPocket
+    safetyPocket,
+    totalAvailableStock,
+    totalSoldQuantity,
+    totalRemainingStock
   };
 }

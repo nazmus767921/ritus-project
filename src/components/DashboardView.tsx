@@ -1,4 +1,6 @@
-import { Scissors, Shirt, TrendingUp, Wallet, Package, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { motion } from 'motion/react';
+import { Scissors, Shirt, TrendingUp, Wallet, Package, AlertCircle, Layers } from 'lucide-react';
 import { calculatePreferredPrice } from '../lib/math/pricing';
 import type { DashboardMetrics, InventoryItemRecord } from '../db/types';
 
@@ -23,6 +25,8 @@ export default function DashboardView({
     const sign = taka < 0 ? '-' : '';
     return `${sign}৳${Math.abs(taka).toFixed(2)}`;
   };
+
+  const formatNumber = (n: number) => n.toLocaleString();
 
   const metricCards = [
     {
@@ -55,6 +59,30 @@ export default function DashboardView({
     }
   ];
 
+  const inventoryMetricCards = [
+    {
+      label: 'Total Available',
+      value: metrics.totalAvailableStock,
+      icon: Layers,
+      bgClass: 'bg-blue-200',
+      description: 'Stock initially recorded'
+    },
+    {
+      label: 'Total Sold',
+      value: metrics.totalSoldQuantity,
+      icon: TrendingUp,
+      bgClass: 'bg-orange-200',
+      description: 'Units sold across transactions'
+    },
+    {
+      label: 'Total Remaining',
+      value: metrics.totalRemainingStock,
+      icon: Package,
+      bgClass: 'bg-teal-200',
+      description: 'Available minus sold'
+    }
+  ];
+
   const getMascotImage = (mood: string): string => {
     switch (mood) {
       case 'happy': return '/tailor_cat_happy.png';
@@ -66,7 +94,6 @@ export default function DashboardView({
 
   // Dynamic Tailor Cat Mascot logic
   const getMascotConfig = () => {
-    // 1. Shelves are empty (no items logged)
     if (inventoryItems.length === 0) {
       return {
         mood: 'sad',
@@ -76,7 +103,6 @@ export default function DashboardView({
       };
     }
 
-    // 2. Safety Pocket status checks
     if (metrics.safetyPocket < 0) {
       return {
         mood: 'sad',
@@ -86,7 +112,6 @@ export default function DashboardView({
       };
     }
 
-    // 3. Safety Pocket below target setting warning
     if (metrics.safetyPocket < safetyPocketTarget) {
       return {
         mood: 'neutral',
@@ -96,7 +121,6 @@ export default function DashboardView({
       };
     }
 
-    // 4. Out of stock / Low stock warning
     const lowStockItems = inventoryItems.filter(item => item.quantity <= 3);
     const hasLowStock = lowStockItems.length > 0;
     if (hasLowStock) {
@@ -108,8 +132,7 @@ export default function DashboardView({
       };
     }
 
-    // 5. Safety Pocket is high
-    if (metrics.safetyPocket >= 500000) { // 5,000 Taka (500000 Poisha)
+    if (metrics.safetyPocket >= 500000) {
       return {
         mood: 'happy',
         image: getMascotImage('happy'),
@@ -128,33 +151,88 @@ export default function DashboardView({
 
   const mascot = getMascotConfig();
 
+  const [bubbleExpanded, setBubbleExpanded] = useState(false);
+  const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!bubbleExpanded) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (bubbleRef.current && !bubbleRef.current.contains(e.target as Node)) {
+        if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
+        setBubbleExpanded(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [bubbleExpanded]);
+
+  useEffect(() => {
+    return () => {
+      if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
+    };
+  }, []);
+
+  const handleBubbleTap = () => {
+    if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
+    if (!bubbleExpanded) {
+      setBubbleExpanded(true);
+    }
+    bubbleTimerRef.current = setTimeout(() => {
+      setBubbleExpanded(false);
+    }, 5000);
+  };
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Tailor Cat Shopkeeper Counter Box */}
-      <section className="bg-[#fceec7] rounded-2xl border-[3px] border-black p-4 shadow-neobrutal flex flex-col sm:flex-row gap-4 items-center select-none">
-        {/* Cat Sprite Box */}
-        <div className="w-20 h-20 shrink-0 bg-[#fceec7] border-2 border-black rounded-xl p-1 flex items-center justify-center shadow-neobrutal-sm">
+    <div className="space-y-4 animate-fade-in">
+      {/* Compact Tailor Cat Mascot */}
+      <section
+        ref={bubbleRef}
+        onClick={handleBubbleTap}
+        className="bg-[#fceec7] rounded-2xl border-[3px] border-black p-3 shadow-neobrutal flex items-center gap-3 select-none cursor-pointer"
+      >
+        <div className="w-11 h-11 shrink-0 rounded-full border-[3px] border-black overflow-hidden bg-[#fceec7] flex items-center justify-center shadow-neobrutal-sm">
           <img 
             src={mascot.image} 
             alt={mascot.title} 
-            className="w-full h-full object-contain"
+            className="w-full h-full object-cover"
           />
         </div>
-
-        {/* Dialog bubble */}
-        <div className="flex-1 bg-white border-2 border-black rounded-xl p-3 relative shadow-neobrutal-sm w-full">
-          {/* Bubble tail (neobrutalist style simple notch) */}
-          <div className="hidden sm:block absolute left-[-8px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white border-l-2 border-b-2 border-black rotate-45"></div>
-          
-          <div className="flex flex-col gap-1">
-            <span className="text-[9px] font-sans font-extrabold uppercase tracking-wider text-purple-600">
-              {mascot.title}
-            </span>
-            <p className="font-sans text-xs sm:text-sm font-semibold text-black leading-relaxed">
-              {mascot.dialogue}
-            </p>
-          </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-[8px] font-sans font-extrabold uppercase tracking-wider text-purple-600 block leading-tight">
+            {mascot.title}
+          </span>
+          <motion.p
+            layout
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className={`font-sans text-[11px] font-semibold text-black leading-snug mt-0.5 ${bubbleExpanded ? '' : 'line-clamp-2'}`}
+          >
+            {mascot.dialogue}
+          </motion.p>
         </div>
+      </section>
+
+      {/* 3-Column Inventory Metrics */}
+      <section className="grid grid-cols-3 gap-3">
+        {inventoryMetricCards.map((card, idx) => {
+          const IconComponent = card.icon;
+          return (
+            <div 
+              key={idx} 
+              className={`${card.bgClass} text-black rounded-2xl border-[3px] border-black p-3 shadow-neobrutal-sm flex flex-col justify-between min-h-[90px] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-neobrutal select-none`}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[8px] font-sans font-extrabold uppercase tracking-wider text-black leading-tight">
+                  {card.label}
+                </span>
+                <IconComponent className="w-3.5 h-3.5 shrink-0 text-black stroke-[2.5px]" />
+              </div>
+              <span className="font-display text-base font-extrabold tracking-tight block text-black mt-1">
+                {formatNumber(card.value)}
+              </span>
+            </div>
+          );
+        })}
       </section>
 
       {/* Target Safety Pocket Warning Banner */}

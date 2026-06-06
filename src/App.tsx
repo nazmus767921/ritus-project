@@ -38,7 +38,10 @@ function App() {
     tailoringNet: 0,
     clothingNet: 0,
     totalBusinessProfit: 0,
-    safetyPocket: 0
+    safetyPocket: 0,
+    totalAvailableStock: 0,
+    totalSoldQuantity: 0,
+    totalRemainingStock: 0
   });
 
   // Settings States
@@ -569,6 +572,11 @@ function App() {
                                 <p className={`font-sans font-bold text-black truncate ${isRefunded ? 'line-through text-slate-500' : ''}`}>
                                   {record.description}
                                 </p>
+                                {record.customerName && (
+                                  <span className="bg-blue-100 text-black text-[8px] font-sans font-extrabold px-1.5 py-0.5 rounded border border-black uppercase tracking-wide shrink-0">
+                                    {record.customerName}
+                                  </span>
+                                )}
                                 {isRefunded && (
                                   <span className="bg-red-400 text-black text-[8px] font-sans font-extrabold px-1.5 py-0.5 rounded border border-black uppercase tracking-wide shrink-0">
                                     Refunded
@@ -577,6 +585,7 @@ function App() {
                               </div>
                               <p className="text-slate-600 font-mono text-[10px]">
                                 {new Date(record.createdAt).toLocaleString()}
+                                {record.notes && <span className="text-slate-400 ml-2">— {record.notes}</span>}
                               </p>
                             </div>
                             
