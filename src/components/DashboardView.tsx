@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Scissors, Shirt, TrendingUp, Wallet, Package, AlertCircle, Layers } from 'lucide-react';
 import { calculatePreferredPrice } from '../lib/math/pricing';
@@ -23,6 +23,12 @@ export default function DashboardView({
 
 
   const formatNumber = (n: number) => n.toLocaleString();
+
+  const topSelling = useMemo(() => {
+    return [...inventoryItems]
+      .sort((a, b) => (b.initialQuantity - b.quantity) - (a.initialQuantity - a.quantity))
+      .slice(0, 5);
+  }, [inventoryItems]);
 
   const metricCards = [
     {
@@ -279,7 +285,7 @@ export default function DashboardView({
             <Package className="w-4 h-4 text-black" /> Active Stock Items
           </h2>
           <span className="text-xs font-sans font-bold text-slate-600">
-            Total Batches: {inventoryItems.length}
+            Total Batches: {inventoryItems.length}{inventoryItems.length > 5 ? ' (top 5 shown)' : ''}
           </span>
         </div>
 
@@ -290,7 +296,7 @@ export default function DashboardView({
               No inventory batches logged yet. Go to the Inventory tab to import a shipment.
             </div>
           ) : (
-            inventoryItems.map((item) => {
+            topSelling.map((item) => {
               // Badge configuration based on stock count
               let badgeClass = '';
               let badgeLabel = '';
