@@ -1,7 +1,7 @@
 import { desc, eq } from 'drizzle-orm';
 import { getDb } from '../client';
 import { inventoryItems, transactions } from '../schema';
-import { roundPrice } from '../../lib/math/rounding';
+import { roundPrice, formatCurrency } from '../../lib/math/rounding';
 import type { InventoryItemRecord } from '../types';
 
 /**
@@ -33,7 +33,7 @@ export async function executeProductSale(itemId: number, retailPrice: number, no
       .where(eq(inventoryItems.id, itemId));
 
     // 3. Build description with item details
-    const description = `Sale: ${item.brand} (Cost: ৳${(item.trueCost / 100).toFixed(2)})`;
+    const description = `Sale: ${item.brand} (Cost: ${formatCurrency(item.trueCost)})`;
 
     // 4. Log sales revenue transaction with linked inventoryItemId
     await tx.insert(transactions).values({
