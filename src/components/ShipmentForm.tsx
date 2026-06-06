@@ -85,7 +85,7 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
   if (!isOpen) return null;
 
   const handleAddLine = () => {
-    setLines([...lines, { brand: '', quantityStr: '', wholesaleCostStr: '' }]);
+    setLines([{ brand: '', quantityStr: '', wholesaleCostStr: '' }, ...lines]);
   };
 
   const handleRemoveLine = (index: number) => {

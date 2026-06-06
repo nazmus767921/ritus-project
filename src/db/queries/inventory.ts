@@ -14,7 +14,7 @@ export async function getInventoryItems(): Promise<InventoryItemRecord[]> {
 /**
  * Executes a product sale transaction: verifies stock, decrements quantity, and logs clothing income.
  */
-export async function executeProductSale(itemId: number, retailPrice: number) {
+export async function executeProductSale(itemId: number, retailPrice: number, note?: string, customerName?: string) {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
     // 1. Fetch current stock state
@@ -31,11 +31,16 @@ export async function executeProductSale(itemId: number, retailPrice: number) {
       .set({ quantity: item.quantity - 1 })
       .where(eq(inventoryItems.id, itemId));
 
-    // 3. Log sales revenue transaction with linked inventoryItemId
+    // 3. Build description with optional customer and note
+    let description = `Sale: ${item.brand} (Cost: ৳${(item.trueCost / 100).toFixed(2)})`;
+    if (customerName) description += ` — Customer: ${customerName}`;
+    if (note) description += ` — ${note}`;
+
+    // 4. Log sales revenue transaction with linked inventoryItemId
     await tx.insert(transactions).values({
       amount: retailPrice,
       category: 'clothing_income',
-      description: `Sale: ${item.brand} (Cost: ৳${(item.trueCost / 100).toFixed(2)})`,
+      description,
       createdAt: new Date(),
       status: 'active',
       inventoryItemId: itemId

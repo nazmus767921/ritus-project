@@ -18,6 +18,8 @@ interface SellSheetProps {
 
 export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup }: SellSheetProps) {
   const [retailPriceStr, setRetailPriceStr] = useState('');
+  const [note, setNote] = useState('');
+  const [customerName, setCustomerName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
 
@@ -57,10 +59,12 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
       }
 
       // Execute database transaction (decrements quantity and logs transaction)
-      await executeProductSale(item.id, scaledPrice);
+      await executeProductSale(item.id, scaledPrice, note, customerName);
 
       // Reset state and trigger callbacks
       setRetailPriceStr('');
+      setNote('');
+      setCustomerName('');
       onSave();
       onClose();
     } catch (err: unknown) {
@@ -143,6 +147,30 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
                 autoFocus
               />
             </div>
+          </div>
+
+          {/* Customer name field */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-sans font-bold text-slate-700 uppercase">Customer Name (Optional)</label>
+            <input
+              type="text"
+              placeholder="e.g. Mr. Rahman"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-mono text-sm text-black focus:outline-none focus:bg-white min-h-[44px]"
+            />
+          </div>
+
+          {/* Note field */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-sans font-bold text-slate-700 uppercase">Note (Optional)</label>
+            <input
+              type="text"
+              placeholder="Add a note..."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-mono text-sm text-black focus:outline-none focus:bg-white min-h-[44px]"
+            />
           </div>
 
           {/* Form Actions Footer */}

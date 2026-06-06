@@ -287,9 +287,12 @@ function App() {
     }
   };
 
-  const formatCurrency = (amountInPoisha: number) => {
+  const expenseCategories = new Set(['personal_expense', 'tailoring_expense', 'clothing_overhead']);
+
+  const formatCurrency = (amountInPoisha: number, category?: string) => {
     const taka = amountInPoisha / 100;
-    const sign = taka < 0 ? '-' : '';
+    const isExpense = category && expenseCategories.has(category);
+    const sign = isExpense ? '-' : taka < 0 ? '-' : '';
     return `${sign}৳${Math.abs(taka).toFixed(2)}`;
   };
 
@@ -398,49 +401,51 @@ function App() {
                     <div className="border-t-2 border-slate-200 pt-4 space-y-3">
                       <label className="text-[10px] font-sans font-extrabold text-slate-700 uppercase">App PIN Lock</label>
                       {hasPinEnabled() ? (
-                        <div className="flex gap-2">
+                        <div className="space-y-2">
                           <input
                             type="password"
                             maxLength={6}
                             placeholder="Enter new PIN to change"
                             value={pinSetupValue}
                             onChange={(e) => setPinSetupValue(e.target.value)}
-                            className="flex-1 bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-mono text-xs text-black focus:outline-none min-h-[38px]"
+                            className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-mono text-xs text-black focus:outline-none min-h-[38px]"
                           />
-                          <button
-                            onClick={() => {
-                              if (pinSetupValue.length === 6) {
-                                setStoredPin(pinSetupValue);
-                                setPinSetupValue('');
-                                alert('PIN updated successfully.');
-                              }
-                            }}
-                            disabled={pinSetupValue.length !== 6}
-                            className="bg-green-300 border-2 border-black rounded-xl py-2 px-3 text-xs font-sans font-bold uppercase disabled:opacity-40 cursor-pointer hover:bg-green-400 transition-colors"
-                          >
-                            Set
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm('Remove PIN lock?')) {
-                                setStoredPin('');
-                                alert('PIN lock removed.');
-                              }
-                            }}
-                            className="bg-red-300 border-2 border-black rounded-xl py-2 px-3 text-xs font-sans font-bold uppercase cursor-pointer hover:bg-red-400 transition-colors"
-                          >
-                            Remove
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                if (pinSetupValue.length === 6) {
+                                  setStoredPin(pinSetupValue);
+                                  setPinSetupValue('');
+                                  alert('PIN updated successfully.');
+                                }
+                              }}
+                              disabled={pinSetupValue.length !== 6}
+                              className="flex-1 bg-green-300 border-2 border-black rounded-xl py-2 px-3 text-xs font-sans font-bold uppercase disabled:opacity-40 cursor-pointer hover:bg-green-400 transition-colors"
+                            >
+                              Set
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm('Remove PIN lock?')) {
+                                  setStoredPin('');
+                                  alert('PIN lock removed.');
+                                }
+                              }}
+                              className="flex-1 bg-red-300 border-2 border-black rounded-xl py-2 px-3 text-xs font-sans font-bold uppercase cursor-pointer hover:bg-red-400 transition-colors"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
                       ) : (
-                        <div className="flex gap-2">
+                        <div className="space-y-2">
                           <input
                             type="password"
                             maxLength={6}
                             placeholder="Set a 6-digit PIN"
                             value={pinSetupValue}
                             onChange={(e) => setPinSetupValue(e.target.value)}
-                            className="flex-1 bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-mono text-xs text-black focus:outline-none min-h-[38px]"
+                            className="w-full bg-slate-50 border-2 border-black rounded-xl py-2 px-3 font-mono text-xs text-black focus:outline-none min-h-[38px]"
                           />
                           <button
                             onClick={() => {
@@ -452,7 +457,7 @@ function App() {
                               }
                             }}
                             disabled={pinSetupValue.length !== 6}
-                            className="bg-purple-600 text-white border-2 border-black rounded-xl py-2 px-3 text-xs font-sans font-bold uppercase disabled:opacity-40 cursor-pointer hover:bg-purple-700 transition-colors"
+                            className="w-full bg-purple-600 text-white border-2 border-black rounded-xl py-2 px-3 text-xs font-sans font-bold uppercase disabled:opacity-40 cursor-pointer hover:bg-purple-700 transition-colors"
                           >
                             Enable
                           </button>
@@ -468,12 +473,12 @@ function App() {
               <section className="bg-cyan-200 border-2 border-black rounded-xl overflow-hidden shadow-neobrutal-sm">
                 <button 
                   onClick={() => setIsBackupsOpen(!isBackupsOpen)}
-                  className="w-full p-3 flex justify-between items-center text-xs font-sans font-bold uppercase tracking-wider text-black select-none border-b-2 border-transparent hover:bg-cyan-300/50 transition-colors"
+                  className="w-full p-3 flex justify-between items-center gap-2 text-xs font-sans font-bold uppercase tracking-wider text-black select-none border-b-2 border-transparent hover:bg-cyan-300/50 transition-colors"
                 >
-                  <span className="flex items-center gap-2">
-                    <Database className="w-4 h-4 text-black" /> Local Backup & Restore Utilities
+                  <span className="flex items-center gap-2 min-w-0 truncate">
+                    <Database className="w-4 h-4 text-black shrink-0" /> <span className="truncate">Local Backup & Restore Utilities</span>
                   </span>
-                  <span>{isBackupsOpen ? '[ - ]' : '[ + ]'}</span>
+                  <span className="shrink-0">{isBackupsOpen ? '[ - ]' : '[ + ]'}</span>
                 </button>
                 
                 {isBackupsOpen && (
@@ -481,13 +486,13 @@ function App() {
                     <div className="flex flex-wrap gap-3">
                       <button
                         onClick={handleDownloadBackup}
-                        className="flex-1 min-w-[150px] bg-green-300 hover:bg-green-400 active:translate-x-[1px] active:translate-y-[1px] text-xs font-sans font-bold uppercase py-2 px-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all flex items-center justify-center gap-1.5 min-h-[40px] cursor-pointer"
+                        className="flex-1 min-w-[150px] bg-green-300 hover:bg-green-400 active:translate-x-[1px] active:translate-y-[1px] text-xs font-sans font-bold uppercase py-2 px-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all flex items-center justify-start gap-1.5 min-h-[40px] cursor-pointer text-left"
                       >
-                        <Download className="w-4 h-4" /> Download JSON Backup
+                        <Download className="w-4 h-4 shrink-0" /> <span>Download JSON Backup</span>
                       </button>
 
-                      <label className="flex-1 min-w-[150px] bg-purple-300 hover:bg-purple-400 active:translate-x-[1px] active:translate-y-[1px] text-xs font-sans font-bold uppercase py-2 px-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all flex items-center justify-center gap-1.5 min-h-[40px] cursor-pointer text-center">
-                        <Upload className="w-4 h-4" /> Import Backup File
+                      <label className="flex-1 min-w-[150px] bg-purple-300 hover:bg-purple-400 active:translate-x-[1px] active:translate-y-[1px] text-xs font-sans font-bold uppercase py-2 px-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all flex items-center justify-start gap-1.5 min-h-[40px] cursor-pointer text-left">
+                        <Upload className="w-4 h-4 shrink-0" /> <span>Import Backup File</span>
                         <input
                           type="file"
                           accept=".json"
@@ -499,9 +504,9 @@ function App() {
                       {hasAutoBackup() && (
                         <button
                           onClick={handleRestoreAutoBackup}
-                          className="flex-1 min-w-[150px] bg-yellow-300 hover:bg-yellow-400 active:translate-x-[1px] active:translate-y-[1px] text-xs font-sans font-bold uppercase py-2 px-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all flex items-center justify-center gap-1.5 min-h-[40px] cursor-pointer"
+                          className="flex-1 min-w-[150px] bg-yellow-300 hover:bg-yellow-400 active:translate-x-[1px] active:translate-y-[1px] text-xs font-sans font-bold uppercase py-2 px-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all flex items-center justify-start gap-1.5 min-h-[40px] cursor-pointer text-left"
                         >
-                          <RotateCcw className="w-4 h-4" /> Restore Last Auto-Backup
+                          <RotateCcw className="w-4 h-4 shrink-0" /> <span>Restore Last Auto-Backup</span>
                         </button>
                       )}
                     </div>
@@ -576,8 +581,8 @@ function App() {
                             </div>
                             
                             <div className="text-right space-y-1.5 shrink-0 flex flex-col items-end">
-                              <p className={`font-display font-bold text-black ${isRefunded ? 'line-through text-slate-400' : ''}`}>
-                                {formatCurrency(record.amount)}
+                              <p className={`font-display font-bold ${expenseCategories.has(record.category) ? 'text-red-600' : 'text-black'} ${isRefunded ? 'line-through text-slate-400' : ''}`}>
+                                {formatCurrency(record.amount, record.category)}
                               </p>
                               
                               <div className="flex gap-1.5 items-center">
