@@ -104,6 +104,19 @@ export async function initDb() {
     // Ignore error if column already exists
   }
 
+  // Migrate schema for transactions table additions (customer_name, notes)
+  try {
+    await sqlite3.exec(dbPtr, `ALTER TABLE transactions ADD COLUMN customer_name TEXT;`);
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
+  try {
+    await sqlite3.exec(dbPtr, `ALTER TABLE transactions ADD COLUMN notes TEXT;`);
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
   // Create settings table
   await sqlite3.exec(dbPtr, `
     CREATE TABLE IF NOT EXISTS settings (
