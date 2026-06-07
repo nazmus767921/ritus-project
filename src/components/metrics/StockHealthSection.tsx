@@ -1,5 +1,4 @@
 import { Layers, Package, TrendingUp } from 'lucide-react';
-import MiniBarChart from './MiniBarChart';
 
 interface StockHealthSectionProps {
   totalAvailableStock: number;
@@ -54,15 +53,6 @@ export default function StockHealthSection({
           </span>
         </div>
       </div>
-
-      <MiniBarChart
-        bars={[
-          { label: 'Sold', value: totalSoldQuantity, color: '#0d9488' },
-          { label: 'Remain', value: totalRemainingStock, color: '#2dd4bf' },
-        ]}
-        formatValue={(n) => `${formatNumber(n)}`}
-        height={40}
-      />
 
       <div className="bg-white rounded-xl border-[3px] border-black p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between">
         <span className="text-[9px] font-sans font-extrabold uppercase tracking-wider text-slate-700">

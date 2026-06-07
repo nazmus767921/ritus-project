@@ -6,6 +6,7 @@ interface MascotFloatingProps {
   metrics: DashboardMetrics;
   inventoryItems: InventoryItemRecord[];
   safetyPocketTarget: number;
+  visible?: boolean;
 }
 
 type MascotMood = 'happy' | 'neutral' | 'sad';
@@ -39,7 +40,8 @@ function getMascotConfig(metrics: DashboardMetrics, inventoryItems: InventoryIte
   return { mood: 'neutral', image: getMascotImage('neutral'), dialogue: "মিয়াও! ক্যাশবাক্সের অবস্থা সুবিধার না আপু। হাত একটু টান করো, ব্যবসা পুরা লাল বাতি হইয়া যাইবো! 🐾", title: "টেইলর বিলাই (সাবধানী)" };
 }
 
-export default function MascotFloating({ metrics, inventoryItems, safetyPocketTarget }: MascotFloatingProps) {
+export default function MascotFloating({ metrics, inventoryItems, safetyPocketTarget, visible = true }: MascotFloatingProps) {
+  if (!visible) return null;
   const [expanded, setExpanded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -69,7 +71,7 @@ export default function MascotFloating({ metrics, inventoryItems, safetyPocketTa
   };
 
   return (
-    <div ref={ref} className="fixed bottom-20 right-4 z-50 flex flex-col items-end gap-2">
+    <div ref={ref} className="fixed bottom-40 right-4 z-50 flex flex-col items-end gap-2">
       {expanded && (
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 8 }}

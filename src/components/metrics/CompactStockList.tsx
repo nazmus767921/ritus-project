@@ -18,7 +18,7 @@ export default function CompactStockList({ items, targetMarkup, onSellClick, for
   }, [items]);
 
   return (
-    <section className="space-y-3">
+    <section className="flex flex-col flex-1 min-h-0 space-y-3">
       <div className="flex justify-between items-center">
         <h2 className="text-[10px] font-sans font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
           <Package className="w-4 h-4 text-black" /> Active Stock
@@ -28,7 +28,7 @@ export default function CompactStockList({ items, targetMarkup, onSellClick, for
         </span>
       </div>
 
-      <div className="bg-white rounded-xl border-[3px] border-black overflow-hidden divide-y-2 divide-black shadow-neobrutal-sm max-h-[320px] overflow-y-auto">
+      <div className="flex-1 bg-white rounded-xl border-[3px] border-black overflow-hidden divide-y-2 divide-black shadow-neobrutal-sm overflow-y-auto">
         {items.length === 0 ? (
           <div className="p-6 text-center text-slate-500 text-xs">
             <Package className="w-6 h-6 mx-auto mb-1 opacity-50 text-black" />

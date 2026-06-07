@@ -1,5 +1,4 @@
 import { Scissors, Shirt, TrendingUp } from 'lucide-react';
-import MiniBarChart from './MiniBarChart';
 
 interface RevenueSectionProps {
   tailoringNet: number;
@@ -43,15 +42,6 @@ export default function RevenueSection({
           </span>
         </div>
       </div>
-
-      <MiniBarChart
-        bars={[
-          { label: 'Tailor', value: tailoringNet, color: '#d97706' },
-          { label: 'Clothing', value: clothingNet, color: '#0284c7' },
-        ]}
-        formatValue={formatCurrency}
-        height={48}
-      />
 
       <div className="bg-white rounded-xl border-[3px] border-black p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between">
         <span className="text-[9px] font-sans font-extrabold uppercase tracking-wider text-slate-700">

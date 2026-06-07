@@ -46,6 +46,7 @@ function App() {
   const [safetyPocketTargetStr, setSafetyPocketTargetStr] = useState('0.00');
   const [targetMarkup, setTargetMarkup] = useState<number>(0.20); // fraction
   const [targetMarkupStr, setTargetMarkupStr] = useState('20');
+  const [mascotHidden, setMascotHidden] = useState(false);
 
   // Navigation
   const [activeTab, setActiveTab] = useState<'dashboard' | 'finances' | 'inventory' | 'reports'>('dashboard');
@@ -121,6 +122,7 @@ function App() {
     try {
       const pocketStr = await getSetting('safety_pocket_target', '0');
       const markupStr = await getSetting('target_profit_margin', '20');
+      const mascotStr = await getSetting('mascot_hidden', 'false');
       
       const pocketVal = parseFloat(pocketStr) || 0;
       const markupVal = (parseFloat(markupStr) || 20) / 100;
@@ -130,6 +132,7 @@ function App() {
       
       setTargetMarkup(markupVal);
       setTargetMarkupStr(markupStr);
+      setMascotHidden(mascotStr === 'true');
     } catch (err: unknown) {
       console.error("Failed to load settings:", err);
     }
@@ -148,6 +151,13 @@ function App() {
     const parsed = parseFloat(valStr) || 20;
     setTargetMarkup(parsed / 100);
     await setSetting('target_profit_margin', valStr);
+    autoBackupLocal();
+  };
+
+  const handleToggleMascot = async () => {
+    const next = !mascotHidden;
+    setMascotHidden(next);
+    await setSetting('mascot_hidden', next ? 'true' : 'false');
     autoBackupLocal();
   };
 
@@ -301,7 +311,7 @@ function App() {
       {isLocked && <PinScreen onUnlock={() => setIsLocked(false)} />}
       <div className={`min-h-screen bg-yellow-100 text-black font-sans p-4 md:p-8 flex flex-col items-center pb-28 ${isLocked ? 'hidden' : ''}`}>
       {/* Retro Game Window Wrapper */}
-      <div className="w-full max-w-2xl bg-white rounded-2xl border-[3px] border-black shadow-neobrutal overflow-hidden">
+      <div className="w-full max-w-2xl bg-white rounded-2xl border-[3px] border-black shadow-neobrutal overflow-hidden flex flex-col">
         {/* Retro Title Bar Header */}
         <div className="bg-black text-white px-4 py-3 flex items-center justify-between border-b-[3px] border-black select-none">
           <div className="flex items-center gap-1.5 shrink-0">
@@ -343,13 +353,14 @@ function App() {
           </div>
         )}
 
-        <div className="p-4 sm:p-6">
+        <div className="flex flex-col flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
           {activeTab === 'dashboard' ? (
             <DashboardView
               metrics={metrics}
               inventoryItems={inventoryRecords}
               safetyPocketTarget={safetyPocketTarget}
               targetMarkup={targetMarkup}
+              showMascot={!mascotHidden}
               onSellClick={(item) => {
                 setSelectedSellItem(item);
                 setIsSellOpen(true);
@@ -464,6 +475,20 @@ function App() {
                         </div>
                       )}
                       <p className="text-[9px] text-slate-500 font-sans font-medium">Set a 6-digit PIN to lock the app on startup.</p>
+                    </div>
+
+                    <div className="border-t-2 border-slate-200 pt-4 flex items-center justify-between">
+                      <label className="text-[10px] font-sans font-extrabold text-slate-700 uppercase">Tailor Cat Mascot</label>
+                      <button
+                        onClick={handleToggleMascot}
+                        className={`text-[10px] font-sans font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl border-2 border-black transition-all min-h-[32px] ${
+                          mascotHidden
+                            ? 'bg-slate-200 text-slate-600'
+                            : 'bg-green-300 text-black'
+                        }`}
+                      >
+                        {mascotHidden ? 'Hidden' : 'Visible'}
+                      </button>
                     </div>
                   </div>
                 )}

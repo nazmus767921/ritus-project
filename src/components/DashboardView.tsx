@@ -2,7 +2,6 @@ import { motion } from 'motion/react';
 import type { DashboardMetrics, InventoryItemRecord } from '../db/types';
 import HeroMetric from './metrics/HeroMetric';
 import RevenueSection from './metrics/RevenueSection';
-import CashPositionSection from './metrics/CashPositionSection';
 import StockHealthSection from './metrics/StockHealthSection';
 import CompactStockList from './metrics/CompactStockList';
 import MascotFloating from './metrics/MascotFloating';
@@ -20,6 +19,7 @@ interface DashboardViewProps {
   onSellClick: (item: InventoryItemRecord) => void;
   safetyPocketTarget: number;
   targetMarkup: number;
+  showMascot?: boolean;
 }
 
 export default function DashboardView({
@@ -28,6 +28,7 @@ export default function DashboardView({
   onSellClick,
   safetyPocketTarget,
   targetMarkup,
+  showMascot = true,
 }: DashboardViewProps) {
   const hasData = inventoryItems.length > 0 && metrics.totalBusinessProfit !== 0;
 
@@ -42,8 +43,8 @@ export default function DashboardView({
   const formatNum = (n: number) => n.toLocaleString();
 
   return (
-    <div className="space-y-4 pb-20">
-      <div className="animate-fade-in">
+    <div className="flex flex-col min-h-0 flex-1 space-y-4 pb-20">
+      <div className="animate-fade-in shrink-0">
         <HeroMetric
           safetyPocket={metrics.safetyPocket}
           safetyPocketTarget={safetyPocketTarget}
@@ -52,34 +53,24 @@ export default function DashboardView({
       </div>
 
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
-        initial="hidden"
-        animate="visible"
-        variants={{
-          visible: { transition: { staggerChildren: 0.08 } },
-        }}
+        className="shrink-0"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
       >
-        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }}>
-          <RevenueSection
-            tailoringNet={metrics.tailoringNet}
-            clothingNet={metrics.clothingNet}
-            totalBusinessProfit={metrics.totalBusinessProfit}
-            formatCurrency={formatCurrency}
-          />
-        </motion.div>
-        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }}>
-          <CashPositionSection
-            safetyPocket={metrics.safetyPocket}
-            safetyPocketTarget={safetyPocketTarget}
-            formatCurrency={formatCurrency}
-          />
-        </motion.div>
+        <RevenueSection
+          tailoringNet={metrics.tailoringNet}
+          clothingNet={metrics.clothingNet}
+          totalBusinessProfit={metrics.totalBusinessProfit}
+          formatCurrency={formatCurrency}
+        />
       </motion.div>
 
       <motion.div
+        className="shrink-0"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={{ delay: 0.16 }}
       >
         <StockHealthSection
           totalAvailableStock={totalAvailableStock}
@@ -90,9 +81,10 @@ export default function DashboardView({
       </motion.div>
 
       <motion.div
+        className="flex flex-col flex-1 min-h-0"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.24 }}
       >
         <CompactStockList
           items={inventoryItems}
@@ -106,6 +98,7 @@ export default function DashboardView({
         metrics={metrics}
         inventoryItems={inventoryItems}
         safetyPocketTarget={safetyPocketTarget}
+        visible={showMascot}
       />
     </div>
   );
