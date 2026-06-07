@@ -1,12 +1,5 @@
 import { motion } from 'motion/react';
 import type { DashboardMetrics, InventoryItemRecord } from '../db/types';
-
-const formatCurrency = (amountInPoisha: number) => {
-  const taka = amountInPoisha / 100;
-  const sign = taka < 0 ? '-' : '';
-  return `${sign}৳${Math.abs(taka).toFixed(2)}`;
-};
-
 import HeroMetric from './metrics/HeroMetric';
 import RevenueSection from './metrics/RevenueSection';
 import CashPositionSection from './metrics/CashPositionSection';
@@ -14,6 +7,12 @@ import StockHealthSection from './metrics/StockHealthSection';
 import CompactStockList from './metrics/CompactStockList';
 import MascotFloating from './metrics/MascotFloating';
 import EmptyDashboard from './metrics/EmptyDashboard';
+
+const formatCurrency = (amountInPoisha: number) => {
+  const taka = amountInPoisha / 100;
+  const sign = taka < 0 ? '-' : '';
+  return `${sign}৳${Math.abs(taka).toFixed(2)}`;
+};
 
 interface DashboardViewProps {
   metrics: DashboardMetrics;
@@ -36,7 +35,10 @@ export default function DashboardView({
     return <EmptyDashboard />;
   }
 
-  const formatFn = (n: number) => formatCurrency(n);
+  const totalAvailableStock = inventoryItems.reduce((sum, item) => sum + item.initialQuantity, 0);
+  const totalSoldQuantity = inventoryItems.reduce((sum, item) => sum + (item.initialQuantity - item.quantity), 0);
+  const totalRemainingStock = inventoryItems.reduce((sum, item) => sum + item.quantity, 0);
+
   const formatNum = (n: number) => n.toLocaleString();
 
   return (
@@ -45,7 +47,7 @@ export default function DashboardView({
         <HeroMetric
           safetyPocket={metrics.safetyPocket}
           safetyPocketTarget={safetyPocketTarget}
-          formatCurrency={formatFn}
+          formatCurrency={formatCurrency}
         />
       </div>
 
@@ -62,14 +64,14 @@ export default function DashboardView({
             tailoringNet={metrics.tailoringNet}
             clothingNet={metrics.clothingNet}
             totalBusinessProfit={metrics.totalBusinessProfit}
-            formatCurrency={formatFn}
+            formatCurrency={formatCurrency}
           />
         </motion.div>
         <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }}>
           <CashPositionSection
             safetyPocket={metrics.safetyPocket}
             safetyPocketTarget={safetyPocketTarget}
-            formatCurrency={formatFn}
+            formatCurrency={formatCurrency}
           />
         </motion.div>
       </motion.div>
@@ -80,9 +82,9 @@ export default function DashboardView({
         transition={{ delay: 0.2 }}
       >
         <StockHealthSection
-          totalAvailableStock={metrics.totalAvailableStock}
-          totalSoldQuantity={metrics.totalSoldQuantity}
-          totalRemainingStock={metrics.totalRemainingStock}
+          totalAvailableStock={totalAvailableStock}
+          totalSoldQuantity={totalSoldQuantity}
+          totalRemainingStock={totalRemainingStock}
           formatNumber={formatNum}
         />
       </motion.div>
@@ -96,7 +98,7 @@ export default function DashboardView({
           items={inventoryItems}
           targetMarkup={targetMarkup}
           onSellClick={onSellClick}
-          formatCurrency={formatFn}
+          formatCurrency={formatCurrency}
         />
       </motion.div>
 
