@@ -31,6 +31,12 @@ export async function exportDbToJson(): Promise<string> {
  */
 export async function importDbFromJson(jsonStr: string): Promise<void> {
   const data = JSON.parse(jsonStr);
+  const SUPPORTED_VERSION = 1;
+  if (data.version && data.version > SUPPORTED_VERSION) {
+    throw new Error(
+      `Backup version ${data.version} is not supported. Current supported version: ${SUPPORTED_VERSION}.`
+    );
+  }
   if (!data.transactions || !data.shipments || !data.inventoryItems) {
     throw new Error("Invalid backup file format.");
   }
