@@ -49,7 +49,8 @@ export async function importDbFromJson(jsonStr: string): Promise<void> {
         await tx.insert(shipments).values({
           id: s.id,
           courierFee: s.courierFee,
-          deliveryDate: new Date(s.deliveryDate)
+          deliveryDate: new Date(s.deliveryDate),
+          courierTransactionId: s.courierTransactionId || null
         });
       }
     }
@@ -62,6 +63,7 @@ export async function importDbFromJson(jsonStr: string): Promise<void> {
           shipmentId: item.shipmentId,
           brand: item.brand,
           quantity: item.quantity,
+          initialQuantity: item.initialQuantity ?? item.quantity,
           wholesaleCost: item.wholesaleCost,
           trueCost: item.trueCost
         });
@@ -76,8 +78,11 @@ export async function importDbFromJson(jsonStr: string): Promise<void> {
           amount: t.amount,
           category: t.category,
           description: t.description,
+          customerName: t.customerName || null,
+          notes: t.notes || null,
           createdAt: new Date(t.createdAt),
           status: t.status || 'active',
+          quantity: t.quantity ?? 1,
           inventoryItemId: t.inventoryItemId || null
         });
       }
