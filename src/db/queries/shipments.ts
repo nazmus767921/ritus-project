@@ -1,4 +1,4 @@
-import { eq, desc } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../client';
 import { shipments, inventoryItems, transactions } from '../schema';
 import { roundStock, roundPrice } from '../../lib/math/rounding';
@@ -65,18 +65,20 @@ export async function createShipmentTransaction(
 
 /**
  * Deletes a shipment and its associated courier fee transaction.
- * Uses the stored courierTransactionId instead of string matching.
+ * Blocks deletion if any inventory items have linked clothing sales.
  */
 export async function deleteShipment(shipmentId: number): Promise<void> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
     const [shipment] = await tx.select().from(shipments).where(eq(shipments.id, shipmentId));
 
-    // Check for linked sales before allowing deletion
     const items = await tx.select().from(inventoryItems).where(eq(inventoryItems.shipmentId, shipmentId));
     for (const item of items) {
       const [sale] = await tx.select().from(transactions)
-        .where(eq(transactions.inventoryItemId, item.id))
+        .where(and(
+          eq(transactions.inventoryItemId, item.id),
+          eq(transactions.category, 'clothing_income')
+        ))
         .limit(1);
       if (sale) {
         throw new Error(
@@ -89,11 +91,7 @@ export async function deleteShipment(shipmentId: number): Promise<void> {
       await tx.delete(transactions).where(eq(transactions.id, shipment.courierTransactionId));
     }
 
-    // Delete all inventory items (safe — checked above that none have sales)
-    for (const item of items) {
-      await tx.delete(inventoryItems).where(eq(inventoryItems.id, item.id));
-    }
-
+    // CASCADE delete handles inventory items via FK constraint
     await tx.delete(shipments).where(eq(shipments.id, shipmentId));
   });
 }
