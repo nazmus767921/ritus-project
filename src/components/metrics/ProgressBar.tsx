@@ -5,8 +5,10 @@ interface ProgressBarProps {
 }
 
 export default function ProgressBar({ current, target, formatValue }: ProgressBarProps) {
-  const pct = target > 0 ? Math.min(Math.round((current / target) * 100), 100) : 0;
-  const isExceeded = target > 0 && current >= target;
+  const pct = target > 0
+    ? Math.min(Math.round((current / target) * 100), 100)
+    : current > 0 ? 100 : 0;
+  const isExceeded = target > 0 ? current >= target : current > 0;
   const isCritical = current <= 0;
 
   let barColor = 'bg-yellow-400';
