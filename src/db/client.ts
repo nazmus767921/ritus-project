@@ -140,7 +140,7 @@ export async function initDb() {
     const migrateSql = sqlite3.str_new(dbPtr, `SELECT value FROM settings WHERE key = 'mig_v2_amount_total'`);
     const migratePtr = sqlite3.str_value(migrateSql);
     const migratePrep = await sqlite3.prepare_v2(dbPtr, migratePtr);
-    let alreadyMigrated = true;
+    let alreadyMigrated = false;
     if (migratePrep) {
       if (await sqlite3.step(migratePrep.stmt) === 100) {
         alreadyMigrated = sqlite3.column(migratePrep.stmt, 0) === '1';

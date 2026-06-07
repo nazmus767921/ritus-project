@@ -50,7 +50,7 @@ export default function DashboardView({
       value: metrics.totalBusinessProfit,
       icon: TrendingUp,
       bgClass: 'bg-yellow-200',
-      description: 'Combined business income'
+      description: 'Net profit from all business operations'
     },
     {
       label: 'Safety Pocket',

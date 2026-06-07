@@ -48,11 +48,15 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
       }
 
       const parsedPrice = parseFloat(retailPriceStr);
-      const scaledPrice = Math.round(parsedPrice * 100);
-      const roundedPrice = roundPrice(scaledPrice);
+      const roundedAmount = roundPrice(Math.round(parsedPrice * 100));
 
-      if (isNaN(roundedPrice) || roundedPrice <= 0) {
+      if (isNaN(roundedAmount) || roundedAmount <= 0) {
         throw new Error('Retail sale price must be a positive number.');
+      }
+
+      // L2: Minimum price validation
+      if (roundedAmount < 100) {
+        throw new Error('Sale price must be at least 1 Taka (100 Poisha).');
       }
 
       if (!item) {
@@ -63,7 +67,7 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
         throw new Error(`Insufficient stock: ${item.quantity} available, ${quantity} requested.`);
       }
 
-      await executeProductSale(item.id, roundedPrice * quantity, note, customerName, quantity);
+      await executeProductSale(item.id, roundedAmount * quantity, note, customerName, quantity);
 
       setRetailPriceStr('');
       setNote('');

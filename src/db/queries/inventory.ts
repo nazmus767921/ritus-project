@@ -33,7 +33,7 @@ export async function executeProductSale(itemId: number, retailPrice: number, no
     const description = `Sale: ${item.brand} (Cost: ${formatCurrency(item.trueCost)})`;
 
     await tx.insert(transactions).values({
-      amount: roundPrice(retailPrice),
+      amount: retailPrice,
       category: 'clothing_income',
       description,
       customerName: customerName || null,
