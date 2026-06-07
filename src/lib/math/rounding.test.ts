@@ -9,7 +9,7 @@ describe('formatCurrency', () => {
   });
 
   it('handles negative values', () => {
-    expect(formatCurrency(-50000)).toBe('-৳500');
+    expect(formatCurrency(-50000)).toBe('৳-500');
   });
 
   it('rounds fractional Poisha to nearest Taka', () => {
@@ -19,9 +19,9 @@ describe('formatCurrency', () => {
 });
 
 describe('roundStock', () => {
-  it('rounds to nearest integer, min 0', () => {
+  it('rounds to nearest integer, throws on negative', () => {
     expect(roundStock(4.7)).toBe(5);
-    expect(roundStock(-5)).toBe(0);
+    expect(() => roundStock(-5)).toThrow('Quantity cannot be negative.');
   });
 });
 
