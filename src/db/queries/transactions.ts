@@ -131,6 +131,10 @@ export async function updateTransaction(
       }
     }
 
+    if (oldTx.status === 'refunded' && data.status === 'active') {
+      await cleanupRefundReversal(tx, id);
+    }
+
     return await tx.update(transactions)
       .set({
         amount: data.amount,
@@ -165,8 +169,21 @@ export async function deleteTransaction(id: number): Promise<void> {
       }
     }
 
+    if (oldTx.status === 'refunded') {
+      await cleanupRefundReversal(tx, id);
+    }
+
     return await tx.delete(transactions).where(eq(transactions.id, id));
   });
+}
+
+async function cleanupRefundReversal(tx: any, transactionId: number): Promise<void> {
+  const [reversal] = await tx.select().from(transactions)
+    .where(eq(transactions.description, `Refund courier fee reversal for transaction #${transactionId}`))
+    .limit(1);
+  if (reversal) {
+    await tx.delete(transactions).where(eq(transactions.id, reversal.id));
+  }
 }
 
 export async function refundTransaction(id: number): Promise<void> {
@@ -194,15 +211,13 @@ export async function refundTransaction(id: number): Promise<void> {
           .where(eq(inventoryItems.id, oldTx.inventoryItemId));
 
         const courierFeePerUnit = item.trueCost - item.wholesaleCost;
-        if (courierFeePerUnit > 0) {
-          await tx.insert(transactions).values({
-            amount: -courierFeePerUnit,
-            category: 'clothing_overhead',
-            description: `Refund courier fee reversal for transaction #${id}`,
-            createdAt: new Date(),
-            status: 'active'
-          });
-        }
+        await tx.insert(transactions).values({
+          amount: -(courierFeePerUnit * qty),
+          category: 'clothing_overhead',
+          description: `Refund courier fee reversal for transaction #${id}`,
+          createdAt: new Date(),
+          status: 'active'
+        });
       }
     }
   });
