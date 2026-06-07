@@ -1,6 +1,11 @@
 import { motion } from 'motion/react';
-import { formatCurrency } from '../lib/math/rounding';
 import type { DashboardMetrics, InventoryItemRecord } from '../db/types';
+
+const formatCurrency = (amountInPoisha: number) => {
+  const taka = amountInPoisha / 100;
+  const sign = taka < 0 ? '-' : '';
+  return `${sign}৳${Math.abs(taka).toFixed(2)}`;
+};
 
 import HeroMetric from './metrics/HeroMetric';
 import RevenueSection from './metrics/RevenueSection';
