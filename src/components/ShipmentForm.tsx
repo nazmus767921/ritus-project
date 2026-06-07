@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronRight, Edit2, Check, Layers, Tag, Crosshair } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, Edit2, Check, Layers, Tag, Crosshair, RotateCcw } from 'lucide-react';
 import { calculateOptionA } from '../lib/math/allocator';
 import { formatCurrency } from '../lib/math/rounding';
-import { createShipmentTransaction, updateShipment } from '../db/queries/shipments';
-import type { ShipmentWithItems } from '../db/types';
+import { createShipmentTransaction, updateShipment, getAvailableForExchange } from '../db/queries/shipments';
+import type { ShipmentWithItems, InventoryItemRecord, ExchangeItem } from '../db/types';
 import BottomSheet from './BottomSheet';
 import SystemAlert from './SystemAlert';
 
@@ -21,14 +21,53 @@ interface FormLine {
   wholesaleCostStr: string;
 }
 
+interface ExchangeRow {
+  item: InventoryItemRecord;
+  quantity: number;
+  reason: 'faulty' | 'unsold';
+}
+
 export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null }: ShipmentFormProps) {
   const [courierFeeStr, setCourierFeeStr] = useState('0.00');
   const [deliveryDateStr, setDeliveryDateStr] = useState('');
+  const [supplier, setSupplier] = useState('');
   const [lines, setLines] = useState<FormLine[]>([{ brand: '', quantityStr: '', wholesaleCostStr: '' }]);
   const [expandedIndex, setExpandedIndex] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [view, setView] = useState<'base' | 'review' | 'confirm'>('base');
   const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
+  const [availableExchanges, setAvailableExchanges] = useState<InventoryItemRecord[]>([]);
+  const [exchangeRows, setExchangeRows] = useState<ExchangeRow[]>([]);
+  const [isLoadingExchanges, setIsLoadingExchanges] = useState(false);
+
+  const exchangeCredit = useMemo(() => {
+    return exchangeRows.reduce((sum, ex) => sum + (ex.item.wholesaleCost * ex.quantity), 0);
+  }, [exchangeRows]);
+
+  const showExchangeWarning = exchangeCredit > 0 && exchangeCredit > lines.reduce((sum, l) => {
+    const qty = parseInt(l.quantityStr);
+    const cost = parseFloat(l.wholesaleCostStr);
+    if (isNaN(qty) || isNaN(cost)) return sum;
+    return sum + (qty * cost * 100);
+  }, 0);
+
+  // Load available exchange items when supplier changes
+  useEffect(() => {
+    if (supplier.trim()) {
+      setIsLoadingExchanges(true);
+      getAvailableForExchange(supplier.trim()).then(items => {
+        setAvailableExchanges(items);
+        setExchangeRows([]);
+        setIsLoadingExchanges(false);
+      }).catch(() => {
+        setAvailableExchanges([]);
+        setIsLoadingExchanges(false);
+      });
+    } else {
+      setAvailableExchanges([]);
+      setExchangeRows([]);
+    }
+  }, [supplier]);
 
   useEffect(() => {
     if (isOpen) {
@@ -39,6 +78,7 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const dd = String(date.getDate()).padStart(2, '0');
         setDeliveryDateStr(`${yyyy}-${mm}-${dd}`);
+        setSupplier(shipment.supplier || '');
         setLines(shipment.items.map((item) => ({
           id: item.id,
           brand: item.brand,
@@ -53,6 +93,7 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
         const mm = String(today.getMonth() + 1).padStart(2, '0');
         const dd = String(today.getDate()).padStart(2, '0');
         setDeliveryDateStr(`${yyyy}-${mm}-${dd}`);
+        setSupplier('');
         setLines([{ brand: '', quantityStr: '', wholesaleCostStr: '' }]);
         setExpandedIndex(0);
       }
@@ -166,14 +207,30 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
         trueCost: trueCosts[idx]
       }));
 
+      const exchanges: ExchangeItem[] = exchangeRows
+        .filter(ex => ex.quantity > 0)
+        .map(ex => ({
+          inventoryItemId: ex.item.id,
+          quantity: ex.quantity,
+          reason: ex.reason
+        }));
+
       if (shipment) {
-        await updateShipment(shipment.id, parsedFee, deliveryDate, itemsToInsert);
+        await updateShipment(shipment.id, parsedFee, deliveryDate, itemsToInsert, supplier.trim() || undefined);
       } else {
-        await createShipmentTransaction(parsedFee, deliveryDate, itemsToInsert);
+        await createShipmentTransaction(
+          parsedFee,
+          deliveryDate,
+          itemsToInsert,
+          supplier.trim() || undefined,
+          exchanges.length > 0 ? exchanges : undefined
+        );
       }
 
       setCourierFeeStr('0.00');
       setLines([{ brand: '', quantityStr: '', wholesaleCostStr: '' }]);
+      setSupplier('');
+      setExchangeRows([]);
       setView('base');
       onSave();
       onClose();
@@ -300,7 +357,106 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
               />
             </div>
           </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-sans font-bold text-slate-700 uppercase">Supplier (Optional)</label>
+            <input
+              type="text"
+              placeholder="e.g. Dhaka Wholesale"
+              value={supplier}
+              onChange={(e) => setSupplier(e.target.value)}
+              className="w-full bg-white border-2 border-black rounded-xl py-2 px-3 font-mono text-sm text-black focus:outline-none min-h-[40px]"
+            />
+          </div>
         </div>
+
+        {/* Supplier Exchange Section */}
+        {supplier.trim() && availableExchanges.length > 0 && (
+          <div className="bg-cyan-50 rounded-xl border-2 border-black p-4 space-y-3 shadow-neobrutal-sm">
+            <div className="flex items-center gap-2">
+              <RotateCcw className="w-4 h-4 text-black stroke-[2.5px]" />
+              <span className="text-[10px] font-sans font-bold text-slate-700 uppercase tracking-wider">
+                Exchange from Stock — {supplier}
+              </span>
+            </div>
+            {availableExchanges.map((exItem) => {
+              const exchange = exchangeRows.find(e => e.item.id === exItem.id);
+              const exQty = exchange?.quantity || 0;
+              return (
+                <div key={exItem.id} className="bg-white rounded-lg border-2 border-black p-3 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-xs font-sans font-bold text-black">{exItem.brand}</span>
+                      <span className="text-[9px] font-mono text-slate-500 ml-2">Batch #{exItem.id}</span>
+                    </div>
+                    <span className="text-[9px] font-sans font-bold text-slate-600">
+                      Available: {exItem.quantity} @ {formatCurrency(exItem.wholesaleCost)}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="number"
+                      min={0}
+                      max={exItem.quantity}
+                      placeholder="0"
+                      value={exQty || ''}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        const clamped = Math.min(val, exItem.quantity);
+                        setExchangeRows(prev => {
+                          const filtered = prev.filter(r => r.item.id !== exItem.id);
+                          if (clamped > 0) {
+                            return [...filtered, { item: exItem, quantity: clamped, reason: 'unsold' }];
+                          }
+                          return filtered;
+                        });
+                      }}
+                      className="w-20 bg-white border-2 border-black rounded-lg py-1 px-2 font-mono text-xs text-black focus:outline-none min-h-[32px]"
+                    />
+                    <div className="flex border-2 border-black rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setExchangeRows(prev =>
+                          prev.map(r => r.item.id === exItem.id ? { ...r, reason: 'faulty' } : r)
+                        )}
+                        className={`text-[9px] font-sans font-bold px-2 py-1 min-h-[28px] cursor-pointer ${
+                          exchange?.reason === 'faulty' ? 'bg-red-200 text-black' : 'bg-white text-slate-500'
+                        }`}
+                      >
+                        Faulty
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExchangeRows(prev =>
+                          prev.map(r => r.item.id === exItem.id ? { ...r, reason: 'unsold' } : r)
+                        )}
+                        className={`text-[9px] font-sans font-bold px-2 py-1 min-h-[28px] cursor-pointer ${
+                          !exchange || exchange.reason === 'unsold' ? 'bg-yellow-200 text-black' : 'bg-white text-slate-500'
+                        }`}
+                      >
+                        Unsold
+                      </button>
+                    </div>
+                    {exQty > 0 && (
+                      <span className="text-[10px] font-mono font-bold text-green-600 ml-auto">
+                        +{formatCurrency(exItem.wholesaleCost * exQty)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {exchangeCredit > 0 && (
+              <div className="border-t-2 border-black pt-2 flex justify-between items-center">
+                <span className="text-[10px] font-sans font-bold text-slate-700 uppercase">Total Exchange Credit</span>
+                <span className="text-sm font-display font-extrabold text-green-600">{formatCurrency(exchangeCredit)}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isLoadingExchanges && supplier.trim() && (
+          <div className="text-center text-xs text-slate-500 py-2">Loading available stock...</div>
+        )}
 
         <div className="flex justify-between items-center">
           <span className="text-[10px] font-sans font-bold text-slate-700 uppercase tracking-wider">
@@ -325,9 +481,11 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
                   isExpanded ? '' : 'hover:bg-yellow-50/30'
                 }`}
               >
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setExpandedIndex(isExpanded ? -1 : index)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedIndex(isExpanded ? -1 : index); } }}
                   className="w-full flex items-center gap-2 p-3 min-h-[44px] cursor-pointer text-left"
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -350,7 +508,7 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
-                </button>
+                </div>
 
                 {!isExpanded && (
                   <div className="px-3 pb-3 pt-0 border-t-2 border-black">
@@ -377,55 +535,61 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
         leftAction={{ label: 'Back', onClick: () => setView('base') }}
         rightAction={{ label: 'Confirm', onClick: () => setView('confirm'), disabled: !allRowsValid }}
       >
-        {lines.map((line, index) => {
-          const trueCost = liveTrueCosts?.[index];
-          const qty = parseInt(line.quantityStr);
-          const cost = parseFloat(line.wholesaleCostStr);
-          return (
-            <div key={index} className="bg-slate-50 rounded-xl border-2 border-black p-4 shadow-neobrutal-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-sans font-bold text-black">#{index + 1} {line.brand}</span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setExpandedIndex(index);
-                      setView('base');
-                    }}
-                    className="text-purple-600 hover:bg-purple-50 p-1.5 rounded-lg border border-purple-200 min-w-[32px] min-h-[32px] flex items-center justify-center cursor-pointer"
-                    title="Edit item"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  {lines.length > 1 && (
+        <div className="divide-y-2 divide-black -mx-5 mb-4">
+          {lines.map((line, index) => {
+            const qty = parseInt(line.quantityStr);
+            const cost = parseFloat(line.wholesaleCostStr);
+            return (
+              <div key={index} className="flex items-center gap-2.5 px-5 py-2 hover:bg-yellow-50/20 transition-colors cursor-default">
+                <span className="flex items-center justify-center w-7 h-6 rounded-md bg-black text-white text-[10px] font-display font-extrabold shrink-0 leading-none">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-sans font-bold text-black truncate">{line.brand}</span>
                     <button
-                      onClick={() => handleRemoveLine(index)}
-                      className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg border border-red-200 min-w-[32px] min-h-[32px] flex items-center justify-center cursor-pointer"
-                      title="Remove item"
+                      onClick={() => {
+                        setExpandedIndex(index);
+                        setView('base');
+                      }}
+                      className="text-slate-400 hover:text-purple-600 hover:bg-purple-50 p-1 rounded-md border border-slate-200 hover:border-purple-200 min-w-[26px] min-h-[26px] flex items-center justify-center cursor-pointer transition-all duration-150 shrink-0"
+                      title="Edit item"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Edit2 className="w-3 h-3" />
                     </button>
-                  )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5 text-[9px] font-sans font-bold text-slate-500">
+                    <span>Qty: <span className="font-display font-extrabold text-black">{isNaN(qty) ? '-' : qty}</span></span>
+                    <span>Wholesale: <span className="font-display font-extrabold text-black">{isNaN(cost) ? '-' : formatCurrency(Math.round(cost * 100))}</span></span>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-[10px] font-mono">
-                <div>
-                  <span className="text-slate-500 block font-sans font-bold text-[8px] uppercase">Quantity</span>
-                  <span className="text-black font-extrabold">{isNaN(qty) ? '-' : qty}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block font-sans font-bold text-[8px] uppercase">Wholesale</span>
-                  <span className="text-black font-extrabold">{isNaN(cost) ? '-' : formatCurrency(Math.round(cost * 100))}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block font-sans font-bold text-[8px] uppercase">True Cost</span>
-                  <span className="text-green-600 font-extrabold">
-                    {trueCost !== undefined && trueCost !== null ? formatCurrency(trueCost) : '-'}
-                  </span>
-                </div>
+            );
+          })}
+        </div>
+
+        {exchangeCredit > 0 && (
+          <div className="flex items-center justify-between bg-cyan-50 rounded-xl border-2 border-black p-3 shadow-neobrutal-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-md bg-cyan-100 border-2 border-cyan-300 flex items-center justify-center">
+                <RotateCcw className="w-3 h-3 text-cyan-700" />
               </div>
+              <span className="text-[10px] font-sans font-bold text-slate-700">Exchange Credit</span>
             </div>
-          );
-        })}
+            <span className="text-xs font-display font-extrabold text-emerald-600">{formatCurrency(exchangeCredit)}</span>
+          </div>
+        )}
+
+        {showExchangeWarning && (
+          <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-3 flex items-start gap-2">
+            <div className="w-5 h-5 rounded-md bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+              <span className="text-amber-600 text-[10px] font-display font-extrabold">!</span>
+            </div>
+            <p className="text-[10px] font-sans font-bold text-amber-800">
+              Credit exceeds new cost. Surplus will not be carried forward.
+            </p>
+          </div>
+        )}
       </BottomSheet>
 
       {/* Final confirmation bottom sheet */}
@@ -459,11 +623,22 @@ export default function ShipmentForm({ isOpen, onClose, onSave, shipment = null 
               <span className="text-xs font-sans font-bold text-slate-700 uppercase">Total Wholesale Price</span>
               <span className="font-display text-lg font-extrabold text-black">{formatCurrency(Math.round(totalWholesalePrice * 100))}</span>
             </div>
+            {exchangeCredit > 0 && (
+              <div className="flex justify-between items-center py-2 border-b-2 border-black/30">
+                <span className="text-xs font-sans font-bold text-slate-700 uppercase">Exchange Credit</span>
+                <span className="font-display text-lg font-extrabold text-green-600">-{formatCurrency(exchangeCredit)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center py-2">
               <span className="text-xs font-sans font-bold text-slate-700 uppercase">Courier Charge</span>
               <span className="font-display text-lg font-extrabold text-black">{formatCurrency(Math.round(parseFloat(courierFeeStr || '0') * 100))}</span>
             </div>
           </div>
+          {showExchangeWarning && (
+            <div className="bg-yellow-200 border-2 border-black rounded-xl p-2 text-[9px] font-sans font-bold text-black text-center">
+              Credit exceeds new cost. Surplus will not be carried forward.
+            </div>
+          )}
         </div>
 
         <p className="text-[10px] text-slate-500 text-center font-sans font-medium">

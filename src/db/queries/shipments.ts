@@ -1,8 +1,8 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { getDb } from '../client';
 import { shipments, inventoryItems, transactions } from '../schema';
 import { roundStock } from '../../lib/math/rounding';
-import type { ShipmentRecord, InventoryItemRecord } from '../types';
+import type { ShipmentRecord, InventoryItemRecord, ExchangeItem } from '../types';
 
 export interface ShipmentItemInput {
   id?: number;
@@ -13,19 +13,23 @@ export interface ShipmentItemInput {
 }
 
 /**
- * Creates a shipment and its corresponding inventory items, and logs the courier fee overhead.
+ * Creates a shipment and its corresponding inventory items, logs the courier fee overhead,
+ * and handles supplier exchange credits.
  * All writes occur inside a single SQLite transaction to prevent orphan records.
  */
 export async function createShipmentTransaction(
   courierFee: number,
   deliveryDate: Date,
-  items: ShipmentItemInput[]
+  items: ShipmentItemInput[],
+  supplier?: string,
+  exchanges?: ExchangeItem[]
 ): Promise<ShipmentRecord> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
     const [insertedShipment] = await tx.insert(shipments).values({
       courierFee,
-      deliveryDate
+      deliveryDate,
+      supplier: supplier || null
     }).returning();
 
     if (!insertedShipment) {
@@ -47,6 +51,37 @@ export async function createShipmentTransaction(
       });
     }
 
+    // Handle supplier exchanges
+    let exchangeCredit = 0;
+    if (exchanges && exchanges.length > 0) {
+      for (const ex of exchanges) {
+        const [oldItem] = await tx.select().from(inventoryItems)
+          .where(eq(inventoryItems.id, ex.inventoryItemId));
+        if (!oldItem) {
+          throw new Error(`Exchange item ${ex.inventoryItemId} not found.`);
+        }
+        if (oldItem.quantity < ex.quantity) {
+          throw new Error(`Insufficient stock for exchange: ${oldItem.quantity} available, ${ex.quantity} requested.`);
+        }
+        const credit = oldItem.wholesaleCost * ex.quantity;
+        exchangeCredit += credit;
+
+        await tx.update(inventoryItems)
+          .set({ quantity: oldItem.quantity - ex.quantity })
+          .where(eq(inventoryItems.id, ex.inventoryItemId));
+      }
+
+      if (exchangeCredit > 0) {
+        await tx.insert(transactions).values({
+          amount: -exchangeCredit,
+          category: 'supplier_return',
+          description: `Exchange credit for shipment #${insertedShipment.id}`,
+          createdAt: deliveryDate,
+          status: 'active'
+        });
+      }
+    }
+
     if (courierFee > 0) {
       const [feeTx] = await tx.insert(transactions).values({
         amount: courierFee,
@@ -56,7 +91,6 @@ export async function createShipmentTransaction(
         status: 'active'
       }).returning();
 
-      // Store the courier transaction ID on the shipment
       await tx.update(shipments)
         .set({ courierTransactionId: feeTx.id })
         .where(eq(shipments.id, insertedShipment.id));
@@ -106,13 +140,15 @@ export async function updateShipment(
   shipmentId: number,
   courierFee: number,
   deliveryDate: Date,
-  items: ShipmentItemInput[]
+  items: ShipmentItemInput[],
+  supplier?: string
 ): Promise<void> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
     await tx.update(shipments)
-      .set({ courierFee, deliveryDate })
+      .set({ courierFee, deliveryDate, supplier: supplier || null })
       .where(eq(shipments.id, shipmentId));
+
 
     const existingItems = await tx.select().from(inventoryItems).where(eq(inventoryItems.shipmentId, shipmentId));
     const existingIds: number[] = existingItems.map((item: InventoryItemRecord) => item.id);
@@ -237,4 +273,33 @@ export async function updateShipment(
 export async function getShipments(): Promise<ShipmentRecord[]> {
   const db = getDb();
   return await db.select().from(shipments).orderBy(desc(shipments.id));
+}
+
+/**
+ * Returns inventory items from shipments with matching supplier that have remaining qty > 0.
+ * Optionally filtered by brand.
+ */
+export async function getAvailableForExchange(supplier: string, brand?: string): Promise<InventoryItemRecord[]> {
+  const db = getDb();
+  const shipmentRows = await db.select()
+    .from(shipments)
+    .where(eq(shipments.supplier, supplier));
+
+  if (shipmentRows.length === 0) return [];
+
+  const shipmentIds = shipmentRows.map((s: ShipmentRecord) => s.id);
+
+  let query = db.select().from(inventoryItems)
+    .where(
+      and(
+        sql`${inventoryItems.shipmentId} IN (${shipmentIds.join(',')})`,
+        sql`${inventoryItems.quantity} > 0`
+      )
+    );
+
+  if (brand) {
+    query = query.where(eq(inventoryItems.brand, brand));
+  }
+
+  return await query;
 }

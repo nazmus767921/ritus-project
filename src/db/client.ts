@@ -125,6 +125,27 @@ export async function initDb() {
     // Ignore error if column already exists
   }
 
+  // Migrate schema for shipments table additions (supplier)
+  try {
+    await sqlite3.exec(dbPtr, `ALTER TABLE shipments ADD COLUMN supplier TEXT;`);
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
+  // Create index for FIFO lookups
+  try {
+    await sqlite3.exec(dbPtr, `CREATE INDEX IF NOT EXISTS idx_inventory_brand_qty ON inventory_items(brand, quantity);`);
+  } catch (e) {
+    // Ignore error
+  }
+
+  // Create index for exchange filtering
+  try {
+    await sqlite3.exec(dbPtr, `CREATE INDEX IF NOT EXISTS idx_shipments_supplier ON shipments(supplier);`);
+  } catch (e) {
+    // Ignore error
+  }
+
   // Create settings table
   await sqlite3.exec(dbPtr, `
     CREATE TABLE IF NOT EXISTS settings (
