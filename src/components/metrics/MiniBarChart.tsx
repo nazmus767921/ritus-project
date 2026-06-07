@@ -11,6 +11,8 @@ interface MiniBarChartProps {
 }
 
 export default function MiniBarChart({ bars, formatValue, height = 64 }: MiniBarChartProps) {
+  if (bars.length === 0) return null;
+
   const maxValue = Math.max(...bars.map(b => b.value), 1);
 
   return (
@@ -22,11 +24,19 @@ export default function MiniBarChart({ bars, formatValue, height = 64 }: MiniBar
         className="overflow-visible"
       >
         {bars.map((bar, i) => {
-          const barHeight = (bar.value / maxValue) * (height - 20);
+          const barHeight = (bar.value / maxValue) * (height - 28);
           const x = i * 60 + 8;
           const y = height - 10 - barHeight;
           return (
-            <g key={bar.label}>
+            <g key={i}>
+              <text
+                x={x + 14}
+                y={height - 24 - barHeight}
+                textAnchor="middle"
+                className="fill-slate-800 text-[7px] font-mono font-bold"
+              >
+                {formatValue(bar.value)}
+              </text>
               <rect
                 x={x}
                 y={y}
