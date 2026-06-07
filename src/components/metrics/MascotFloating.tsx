@@ -8,7 +8,9 @@ interface MascotFloatingProps {
   safetyPocketTarget: number;
 }
 
-function getMascotImage(mood: string): string {
+type MascotMood = 'happy' | 'neutral' | 'sad';
+
+function getMascotImage(mood: MascotMood): string {
   switch (mood) {
     case 'happy': return '/tailor_cat_happy.png';
     case 'neutral': return '/tailor_cat_neutral.png';
@@ -27,11 +29,11 @@ function getMascotConfig(metrics: DashboardMetrics, inventoryItems: InventoryIte
   if (metrics.safetyPocket < safetyPocketTarget) {
     return { mood: 'neutral', image: getMascotImage('neutral'), dialogue: "আরে আপু, ক্যাশবাক্সের অবস্থা সুবিধার না! পকেটে লাল বাতি জইলা যাইবো মিয়াও! হাত একটু টান করো! 🐾", title: "টেইলর বিলাই (সাবধানী)" };
   }
-  const hasLowStock = inventoryItems.filter(item => item.quantity <= 3).length > 0;
-  if (hasLowStock) {
+  if (inventoryItems.some(item => item.quantity <= 3)) {
     return { mood: 'neutral', image: getMascotImage('neutral'), dialogue: "আরে মিয়াও! দোকানে কিছু মাল তো হাওয়া হইয়া ফক্কা! বউনি করার মতও কিছু নাই। কাস্টমার চিল্লাইবার আগে নতুন লট টানো! 🐾", title: "টেইলর বিলাই (মাল শেষ)" };
   }
-  if (metrics.safetyPocket >= 500000) {
+  const happyThreshold = safetyPocketTarget > 0 ? safetyPocketTarget * 2 : 500000;
+  if (metrics.safetyPocket >= happyThreshold) {
     return { mood: 'happy', image: getMascotImage('happy'), dialogue: "পুরা ক্যালাও আপু! ক্যাশবাক্সে কড়কড়ে টাকা রেডি! নতুন কাপ্তান বা লট আমদানির টাইম আইসা গেছে, কোপায় দাও মিয়াও! 🧵", title: "টেইলর বিলাই (ক্যালাও)" };
   }
   return { mood: 'neutral', image: getMascotImage('neutral'), dialogue: "মিয়াও! ক্যাশবাক্সের অবস্থা সুবিধার না আপু। হাত একটু টান করো, ব্যবসা পুরা লাল বাতি হইয়া যাইবো! 🐾", title: "টেইলর বিলাই (সাবধানী)" };
