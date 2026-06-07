@@ -45,6 +45,7 @@ export async function initDb() {
   // SQLITE_OPEN_CREATE (0x4) | SQLITE_OPEN_READWRITE (0x2) = 0x6
   const dbPtr = await sqlite3.open_v2('clothex.db', 0x6, vfsName);
   rawDbPtr = dbPtr;
+  await sqlite3.exec(dbPtr, 'PRAGMA foreign_keys = ON;');
 
   // Enforce schema constraints and table initialization before executing queries
   await sqlite3.exec(dbPtr, `

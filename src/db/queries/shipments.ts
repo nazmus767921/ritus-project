@@ -72,8 +72,26 @@ export async function deleteShipment(shipmentId: number): Promise<void> {
   return await db.transaction(async (tx: any) => {
     const [shipment] = await tx.select().from(shipments).where(eq(shipments.id, shipmentId));
 
+    // Check for linked sales before allowing deletion
+    const items = await tx.select().from(inventoryItems).where(eq(inventoryItems.shipmentId, shipmentId));
+    for (const item of items) {
+      const [sale] = await tx.select().from(transactions)
+        .where(eq(transactions.inventoryItemId, item.id))
+        .limit(1);
+      if (sale) {
+        throw new Error(
+          `Cannot delete shipment: item "${item.brand}" (ID ${item.id}) has linked sales. Remove sales first.`
+        );
+      }
+    }
+
     if (shipment?.courierTransactionId) {
       await tx.delete(transactions).where(eq(transactions.id, shipment.courierTransactionId));
+    }
+
+    // Delete all inventory items (safe — checked above that none have sales)
+    for (const item of items) {
+      await tx.delete(inventoryItems).where(eq(inventoryItems.id, item.id));
     }
 
     await tx.delete(shipments).where(eq(shipments.id, shipmentId));
