@@ -96,16 +96,17 @@ export default function TransactionForm({
 
       const parsedAmount = parseFloat(amountStr);
       const scaledAmount = Math.round(parsedAmount * 100);
-      const roundedAmount = roundPrice(scaledAmount);
 
-      if (isNaN(roundedAmount) || roundedAmount <= 0) {
+      if (isNaN(scaledAmount) || scaledAmount <= 0) {
         throw new Error('Transaction amount must be a positive number.');
       }
 
-      // L2: Minimum amount validation
-      if (roundedAmount < 100) {
+      // L2: Minimum amount validation (check before roundPrice floors it)
+      if (scaledAmount < 100) {
         throw new Error('Transaction amount must be at least 1 Taka (100 Poisha).');
       }
+
+      const roundedAmount = roundPrice(scaledAmount);
 
       if (!description.trim()) {
         throw new Error('Transaction description cannot be blank.');

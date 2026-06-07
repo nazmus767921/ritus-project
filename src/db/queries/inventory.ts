@@ -1,7 +1,7 @@
 import { desc, eq } from 'drizzle-orm';
 import { getDb } from '../client';
 import { inventoryItems, transactions } from '../schema';
-import { roundPrice, formatCurrency } from '../../lib/math/rounding';
+import { formatCurrency } from '../../lib/math/rounding';
 import type { InventoryItemRecord } from '../types';
 
 /**

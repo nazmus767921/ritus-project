@@ -48,16 +48,18 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
       }
 
       const parsedPrice = parseFloat(retailPriceStr);
-      const roundedAmount = roundPrice(Math.round(parsedPrice * 100));
+      const scaledPrice = Math.round(parsedPrice * 100);
 
-      if (isNaN(roundedAmount) || roundedAmount <= 0) {
+      if (isNaN(scaledPrice) || scaledPrice <= 0) {
         throw new Error('Retail sale price must be a positive number.');
       }
 
-      // L2: Minimum price validation
-      if (roundedAmount < 100) {
+      // L2: Minimum price validation (check before roundPrice floors it)
+      if (scaledPrice < 100) {
         throw new Error('Sale price must be at least 1 Taka (100 Poisha).');
       }
+
+      const roundedAmount = roundPrice(scaledPrice);
 
       if (!item) {
         throw new Error('No item selected.');

@@ -1,7 +1,7 @@
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../client';
 import { shipments, inventoryItems, transactions } from '../schema';
-import { roundStock, roundPrice } from '../../lib/math/rounding';
+import { roundStock } from '../../lib/math/rounding';
 import type { ShipmentRecord, InventoryItemRecord } from '../types';
 
 export interface ShipmentItemInput {
@@ -152,8 +152,8 @@ export async function updateShipment(
           ))
           .limit(1);
         if (linkedSale) {
-          if (roundPrice(item.wholesaleCost) !== existing.wholesaleCost ||
-              roundPrice(item.trueCost) !== existing.trueCost) {
+          if (Math.round(item.wholesaleCost) !== existing.wholesaleCost ||
+              Math.round(item.trueCost) !== existing.trueCost) {
             throw new Error(
               `Cannot change costs on "${item.brand}" (ID ${item.id}): linked sales exist. ` +
               `Create a new shipment for updated pricing.`
@@ -162,8 +162,8 @@ export async function updateShipment(
         }
 
         // L4: Validate wholesaleCost ≤ trueCost
-        const newWholesaleCost = roundPrice(item.wholesaleCost);
-        const newTrueCost = roundPrice(item.trueCost);
+        const newWholesaleCost = Math.round(item.wholesaleCost);
+        const newTrueCost = Math.round(item.trueCost);
         if (newWholesaleCost > newTrueCost) {
           throw new Error(
             `Wholesale cost (${newWholesaleCost}) exceeds true cost (${newTrueCost}) for "${item.brand}".`
@@ -184,8 +184,8 @@ export async function updateShipment(
         if (qty <= 0) {
           throw new Error(`Quantity must be greater than 0 for item "${item.brand}".`);
         }
-        const newWholesaleCost = roundPrice(item.wholesaleCost);
-        const newTrueCost = roundPrice(item.trueCost);
+        const newWholesaleCost = Math.round(item.wholesaleCost);
+        const newTrueCost = Math.round(item.trueCost);
         if (newWholesaleCost > newTrueCost) {
           throw new Error(
             `Wholesale cost (${newWholesaleCost}) exceeds true cost (${newTrueCost}) for "${item.brand}".`
