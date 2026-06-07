@@ -122,27 +122,79 @@ export async function updateShipment(
 
     for (const item of items) {
       if (item.id) {
-        const [existing] = await tx.select({ initialQuantity: inventoryItems.initialQuantity })
+        const [existing] = await tx.select({
+          initialQuantity: inventoryItems.initialQuantity,
+          quantity: inventoryItems.quantity,
+          wholesaleCost: inventoryItems.wholesaleCost,
+          trueCost: inventoryItems.trueCost
+        })
           .from(inventoryItems)
           .where(eq(inventoryItems.id, item.id));
+
+        if (!existing) throw new Error(`Inventory item ${item.id} not found.`);
+
+        // C3: Disallow increasing quantity on existing items
+        if (roundStock(item.quantity) > existing.quantity) {
+          throw new Error(
+            `Cannot increase quantity on existing item. Current remaining: ${existing.quantity}. ` +
+            `Add a new shipment for additional stock.`
+          );
+        }
+
+        // C2: Disallow trueCost/wholesaleCost changes if item has linked sales
+        const [linkedSale] = await tx.select().from(transactions)
+          .where(and(
+            eq(transactions.inventoryItemId, item.id),
+            eq(transactions.category, 'clothing_income')
+          ))
+          .limit(1);
+        if (linkedSale) {
+          if (roundPrice(item.wholesaleCost) !== existing.wholesaleCost ||
+              roundPrice(item.trueCost) !== existing.trueCost) {
+            throw new Error(
+              `Cannot change costs on "${item.brand}" (ID ${item.id}): linked sales exist. ` +
+              `Create a new shipment for updated pricing.`
+            );
+          }
+        }
+
+        // L4: Validate wholesaleCost ≤ trueCost
+        const newWholesaleCost = roundPrice(item.wholesaleCost);
+        const newTrueCost = roundPrice(item.trueCost);
+        if (newWholesaleCost > newTrueCost) {
+          throw new Error(
+            `Wholesale cost (${newWholesaleCost}) exceeds true cost (${newTrueCost}) for "${item.brand}".`
+          );
+        }
+
         await tx.update(inventoryItems)
           .set({
             brand: item.brand,
             quantity: roundStock(item.quantity),
-            initialQuantity: existing?.initialQuantity ?? roundStock(item.quantity),
-            wholesaleCost: roundPrice(item.wholesaleCost),
-            trueCost: roundPrice(item.trueCost)
+            initialQuantity: existing.initialQuantity,
+            wholesaleCost: newWholesaleCost,
+            trueCost: newTrueCost
           })
           .where(eq(inventoryItems.id, item.id));
       } else {
         const qty = roundStock(item.quantity);
+        if (qty <= 0) {
+          throw new Error(`Quantity must be greater than 0 for item "${item.brand}".`);
+        }
+        const newWholesaleCost = roundPrice(item.wholesaleCost);
+        const newTrueCost = roundPrice(item.trueCost);
+        if (newWholesaleCost > newTrueCost) {
+          throw new Error(
+            `Wholesale cost (${newWholesaleCost}) exceeds true cost (${newTrueCost}) for "${item.brand}".`
+          );
+        }
         await tx.insert(inventoryItems).values({
           shipmentId,
           brand: item.brand,
           quantity: qty,
           initialQuantity: qty,
-          wholesaleCost: roundPrice(item.wholesaleCost),
-          trueCost: roundPrice(item.trueCost)
+          wholesaleCost: newWholesaleCost,
+          trueCost: newTrueCost
         });
       }
     }
