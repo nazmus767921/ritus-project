@@ -34,13 +34,16 @@ export async function createShipmentTransaction(
 
     for (const item of items) {
       const qty = roundStock(item.quantity);
+      if (qty <= 0) {
+        throw new Error(`Quantity must be greater than 0 for item "${item.brand}".`);
+      }
       await tx.insert(inventoryItems).values({
         shipmentId: insertedShipment.id,
         brand: item.brand,
         quantity: qty,
         initialQuantity: qty,
-        wholesaleCost: roundPrice(item.wholesaleCost),
-        trueCost: roundPrice(item.trueCost)
+        wholesaleCost: Math.round(item.wholesaleCost),
+        trueCost: Math.round(item.trueCost)
       });
     }
 
