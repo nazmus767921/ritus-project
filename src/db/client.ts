@@ -45,6 +45,7 @@ export async function initDb() {
   // SQLITE_OPEN_CREATE (0x4) | SQLITE_OPEN_READWRITE (0x2) = 0x6
   const dbPtr = await sqlite3.open_v2('clothex.db', 0x6, vfsName);
   rawDbPtr = dbPtr;
+  await sqlite3.exec(dbPtr, 'PRAGMA foreign_keys = ON;');
 
   // Enforce schema constraints and table initialization before executing queries
   await sqlite3.exec(dbPtr, `
@@ -124,6 +125,27 @@ export async function initDb() {
     // Ignore error if column already exists
   }
 
+  // Migrate schema for shipments table additions (supplier)
+  try {
+    await sqlite3.exec(dbPtr, `ALTER TABLE shipments ADD COLUMN supplier TEXT;`);
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
+  // Create index for FIFO lookups
+  try {
+    await sqlite3.exec(dbPtr, `CREATE INDEX IF NOT EXISTS idx_inventory_brand_qty ON inventory_items(brand, quantity);`);
+  } catch (e) {
+    // Ignore error
+  }
+
+  // Create index for exchange filtering
+  try {
+    await sqlite3.exec(dbPtr, `CREATE INDEX IF NOT EXISTS idx_shipments_supplier ON shipments(supplier);`);
+  } catch (e) {
+    // Ignore error
+  }
+
   // Create settings table
   await sqlite3.exec(dbPtr, `
     CREATE TABLE IF NOT EXISTS settings (
@@ -139,7 +161,7 @@ export async function initDb() {
     const migrateSql = sqlite3.str_new(dbPtr, `SELECT value FROM settings WHERE key = 'mig_v2_amount_total'`);
     const migratePtr = sqlite3.str_value(migrateSql);
     const migratePrep = await sqlite3.prepare_v2(dbPtr, migratePtr);
-    let alreadyMigrated = true;
+    let alreadyMigrated = false;
     if (migratePrep) {
       if (await sqlite3.step(migratePrep.stmt) === 100) {
         alreadyMigrated = sqlite3.column(migratePrep.stmt, 0) === '1';

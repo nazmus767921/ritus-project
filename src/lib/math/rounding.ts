@@ -1,5 +1,8 @@
 export function roundStock(value: number): number {
-  return Math.max(0, Math.round(value));
+  if (value < 0) {
+    throw new Error('Quantity cannot be negative.');
+  }
+  return Math.round(value);
 }
 
 export function roundPrice(poishaValue: number): number {
@@ -9,6 +12,6 @@ export function roundPrice(poishaValue: number): number {
 
 export function formatCurrency(amountInPoisha: number): string {
   const taka = Math.round(amountInPoisha / 100);
-  const sign = taka < 0 ? '-' : '';
-  return `${sign}৳${Math.abs(taka)}`;
+  const abs = Math.abs(taka);
+  return taka < 0 ? `৳-${abs}` : `৳${abs}`;
 }

@@ -27,10 +27,13 @@ export async function fetchAggregatedMetrics(): Promise<DashboardMetrics> {
   const tailoringExpense = totals['tailoring_expense'] || 0;
   const clothingIncome = totals['clothing_income'] || 0;
   const clothingOverhead = totals['clothing_overhead'] || 0;
+  const clothingCogs = totals['cost_of_goods_sold'] || 0;
+  const supplierReturn = totals['supplier_return'] || 0;
   const personalExpense = totals['personal_expense'] || 0;
 
   const tailoringNet = tailoringIncome - tailoringExpense;
-  const clothingNet = clothingIncome - clothingOverhead;
+  // supplier_return is stored as negative (credit), so subtracting gives the positive credit adjustment
+  const clothingNet = clothingIncome - clothingCogs - clothingOverhead - supplierReturn;
   const totalBusinessProfit = tailoringNet + clothingNet;
   const safetyPocket = totalBusinessProfit - personalExpense;
 

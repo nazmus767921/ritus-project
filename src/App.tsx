@@ -696,7 +696,6 @@ function App() {
           ) : activeTab === 'stock' ? (
             <StockView
               inventoryItems={inventoryRecords}
-              targetMarkup={targetMarkup}
               onSellClick={(item) => {
                 setSelectedSellItem(item);
                 setIsSellOpen(true);

@@ -1,8 +1,8 @@
-import { eq, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { getDb } from '../client';
 import { shipments, inventoryItems, transactions } from '../schema';
-import { roundStock, roundPrice } from '../../lib/math/rounding';
-import type { ShipmentRecord, InventoryItemRecord } from '../types';
+import { roundStock } from '../../lib/math/rounding';
+import type { ShipmentRecord, InventoryItemRecord, ExchangeItem } from '../types';
 
 export interface ShipmentItemInput {
   id?: number;
@@ -13,19 +13,23 @@ export interface ShipmentItemInput {
 }
 
 /**
- * Creates a shipment and its corresponding inventory items, and logs the courier fee overhead.
+ * Creates a shipment and its corresponding inventory items, logs the courier fee overhead,
+ * and handles supplier exchange credits.
  * All writes occur inside a single SQLite transaction to prevent orphan records.
  */
 export async function createShipmentTransaction(
   courierFee: number,
   deliveryDate: Date,
-  items: ShipmentItemInput[]
+  items: ShipmentItemInput[],
+  supplier?: string,
+  exchanges?: ExchangeItem[]
 ): Promise<ShipmentRecord> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
     const [insertedShipment] = await tx.insert(shipments).values({
       courierFee,
-      deliveryDate
+      deliveryDate,
+      supplier: supplier || null
     }).returning();
 
     if (!insertedShipment) {
@@ -34,14 +38,48 @@ export async function createShipmentTransaction(
 
     for (const item of items) {
       const qty = roundStock(item.quantity);
+      if (qty <= 0) {
+        throw new Error(`Quantity must be greater than 0 for item "${item.brand}".`);
+      }
       await tx.insert(inventoryItems).values({
         shipmentId: insertedShipment.id,
         brand: item.brand,
         quantity: qty,
         initialQuantity: qty,
-        wholesaleCost: roundPrice(item.wholesaleCost),
-        trueCost: roundPrice(item.trueCost)
+        wholesaleCost: Math.round(item.wholesaleCost),
+        trueCost: Math.round(item.trueCost)
       });
+    }
+
+    // Handle supplier exchanges
+    let exchangeCredit = 0;
+    if (exchanges && exchanges.length > 0) {
+      for (const ex of exchanges) {
+        const [oldItem] = await tx.select().from(inventoryItems)
+          .where(eq(inventoryItems.id, ex.inventoryItemId));
+        if (!oldItem) {
+          throw new Error(`Exchange item ${ex.inventoryItemId} not found.`);
+        }
+        if (oldItem.quantity < ex.quantity) {
+          throw new Error(`Insufficient stock for exchange: ${oldItem.quantity} available, ${ex.quantity} requested.`);
+        }
+        const credit = oldItem.wholesaleCost * ex.quantity;
+        exchangeCredit += credit;
+
+        await tx.update(inventoryItems)
+          .set({ quantity: oldItem.quantity - ex.quantity })
+          .where(eq(inventoryItems.id, ex.inventoryItemId));
+      }
+
+      if (exchangeCredit > 0) {
+        await tx.insert(transactions).values({
+          amount: -exchangeCredit,
+          category: 'supplier_return',
+          description: `Exchange credit for shipment #${insertedShipment.id}`,
+          createdAt: deliveryDate,
+          status: 'active'
+        });
+      }
     }
 
     if (courierFee > 0) {
@@ -53,7 +91,6 @@ export async function createShipmentTransaction(
         status: 'active'
       }).returning();
 
-      // Store the courier transaction ID on the shipment
       await tx.update(shipments)
         .set({ courierTransactionId: feeTx.id })
         .where(eq(shipments.id, insertedShipment.id));
@@ -65,17 +102,33 @@ export async function createShipmentTransaction(
 
 /**
  * Deletes a shipment and its associated courier fee transaction.
- * Uses the stored courierTransactionId instead of string matching.
+ * Blocks deletion if any inventory items have linked clothing sales.
  */
 export async function deleteShipment(shipmentId: number): Promise<void> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
     const [shipment] = await tx.select().from(shipments).where(eq(shipments.id, shipmentId));
 
+    const items = await tx.select().from(inventoryItems).where(eq(inventoryItems.shipmentId, shipmentId));
+    for (const item of items) {
+      const [sale] = await tx.select().from(transactions)
+        .where(and(
+          eq(transactions.inventoryItemId, item.id),
+          eq(transactions.category, 'clothing_income')
+        ))
+        .limit(1);
+      if (sale) {
+        throw new Error(
+          `Cannot delete shipment: item "${item.brand}" (ID ${item.id}) has linked sales. Remove sales first.`
+        );
+      }
+    }
+
     if (shipment?.courierTransactionId) {
       await tx.delete(transactions).where(eq(transactions.id, shipment.courierTransactionId));
     }
 
+    // CASCADE delete handles inventory items via FK constraint
     await tx.delete(shipments).where(eq(shipments.id, shipmentId));
   });
 }
@@ -87,13 +140,15 @@ export async function updateShipment(
   shipmentId: number,
   courierFee: number,
   deliveryDate: Date,
-  items: ShipmentItemInput[]
+  items: ShipmentItemInput[],
+  supplier?: string
 ): Promise<void> {
   const db = getDb();
   return await db.transaction(async (tx: any) => {
     await tx.update(shipments)
-      .set({ courierFee, deliveryDate })
+      .set({ courierFee, deliveryDate, supplier: supplier || null })
       .where(eq(shipments.id, shipmentId));
+
 
     const existingItems = await tx.select().from(inventoryItems).where(eq(inventoryItems.shipmentId, shipmentId));
     const existingIds: number[] = existingItems.map((item: InventoryItemRecord) => item.id);
@@ -106,27 +161,79 @@ export async function updateShipment(
 
     for (const item of items) {
       if (item.id) {
-        const [existing] = await tx.select({ initialQuantity: inventoryItems.initialQuantity })
+        const [existing] = await tx.select({
+          initialQuantity: inventoryItems.initialQuantity,
+          quantity: inventoryItems.quantity,
+          wholesaleCost: inventoryItems.wholesaleCost,
+          trueCost: inventoryItems.trueCost
+        })
           .from(inventoryItems)
           .where(eq(inventoryItems.id, item.id));
+
+        if (!existing) throw new Error(`Inventory item ${item.id} not found.`);
+
+        // C3: Disallow increasing quantity on existing items
+        if (roundStock(item.quantity) > existing.quantity) {
+          throw new Error(
+            `Cannot increase quantity on existing item. Current remaining: ${existing.quantity}. ` +
+            `Add a new shipment for additional stock.`
+          );
+        }
+
+        // C2: Disallow trueCost/wholesaleCost changes if item has linked sales
+        const [linkedSale] = await tx.select().from(transactions)
+          .where(and(
+            eq(transactions.inventoryItemId, item.id),
+            eq(transactions.category, 'clothing_income')
+          ))
+          .limit(1);
+        if (linkedSale) {
+          if (Math.round(item.wholesaleCost) !== existing.wholesaleCost ||
+              Math.round(item.trueCost) !== existing.trueCost) {
+            throw new Error(
+              `Cannot change costs on "${item.brand}" (ID ${item.id}): linked sales exist. ` +
+              `Create a new shipment for updated pricing.`
+            );
+          }
+        }
+
+        // L4: Validate wholesaleCost ≤ trueCost
+        const newWholesaleCost = Math.round(item.wholesaleCost);
+        const newTrueCost = Math.round(item.trueCost);
+        if (newWholesaleCost > newTrueCost) {
+          throw new Error(
+            `Wholesale cost (${newWholesaleCost}) exceeds true cost (${newTrueCost}) for "${item.brand}".`
+          );
+        }
+
         await tx.update(inventoryItems)
           .set({
             brand: item.brand,
             quantity: roundStock(item.quantity),
-            initialQuantity: existing?.initialQuantity ?? roundStock(item.quantity),
-            wholesaleCost: roundPrice(item.wholesaleCost),
-            trueCost: roundPrice(item.trueCost)
+            initialQuantity: existing.initialQuantity,
+            wholesaleCost: newWholesaleCost,
+            trueCost: newTrueCost
           })
           .where(eq(inventoryItems.id, item.id));
       } else {
         const qty = roundStock(item.quantity);
+        if (qty <= 0) {
+          throw new Error(`Quantity must be greater than 0 for item "${item.brand}".`);
+        }
+        const newWholesaleCost = Math.round(item.wholesaleCost);
+        const newTrueCost = Math.round(item.trueCost);
+        if (newWholesaleCost > newTrueCost) {
+          throw new Error(
+            `Wholesale cost (${newWholesaleCost}) exceeds true cost (${newTrueCost}) for "${item.brand}".`
+          );
+        }
         await tx.insert(inventoryItems).values({
           shipmentId,
           brand: item.brand,
           quantity: qty,
           initialQuantity: qty,
-          wholesaleCost: roundPrice(item.wholesaleCost),
-          trueCost: roundPrice(item.trueCost)
+          wholesaleCost: newWholesaleCost,
+          trueCost: newTrueCost
         });
       }
     }
@@ -166,4 +273,33 @@ export async function updateShipment(
 export async function getShipments(): Promise<ShipmentRecord[]> {
   const db = getDb();
   return await db.select().from(shipments).orderBy(desc(shipments.id));
+}
+
+/**
+ * Returns inventory items from shipments with matching supplier that have remaining qty > 0.
+ * Optionally filtered by brand.
+ */
+export async function getAvailableForExchange(supplier: string, brand?: string): Promise<InventoryItemRecord[]> {
+  const db = getDb();
+  const shipmentRows = await db.select()
+    .from(shipments)
+    .where(eq(shipments.supplier, supplier));
+
+  if (shipmentRows.length === 0) return [];
+
+  const shipmentIds = shipmentRows.map((s: ShipmentRecord) => s.id);
+
+  let query = db.select().from(inventoryItems)
+    .where(
+      and(
+        sql`${inventoryItems.shipmentId} IN (${shipmentIds.join(',')})`,
+        sql`${inventoryItems.quantity} > 0`
+      )
+    );
+
+  if (brand) {
+    query = query.where(eq(inventoryItems.brand, brand));
+  }
+
+  return await query;
 }

@@ -11,7 +11,9 @@ export const transactions = sqliteTable('transactions', {
       'tailoring_expense', 
       'clothing_overhead', 
       'tailoring_income', 
-      'clothing_income'
+      'clothing_income',
+      'cost_of_goods_sold',
+      'supplier_return'
     ]
   }).notNull(),
   description: text('description').notNull(),
@@ -29,7 +31,8 @@ export const shipments = sqliteTable('shipments', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   courierFee: integer('courier_fee').notNull(), // Scaled integer (Taka * 100)
   deliveryDate: integer('delivery_date', { mode: 'timestamp' }).notNull(),
-  courierTransactionId: integer('courier_transaction_id')
+  courierTransactionId: integer('courier_transaction_id'),
+  supplier: text('supplier')
 });
 
 // 3. Inventory Items Table

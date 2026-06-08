@@ -41,13 +41,17 @@ export default function ReportsView({ transactions, inventoryItems, targetMarkup
   // Profit expectation meet rate
   const clothingSales = activeTx.filter(t => t.category === 'clothing_income');
   const salesMeetingTarget = clothingSales.filter(t => {
-    if (!t.inventoryItemId) return true;
+    if (!t.inventoryItemId) return false;
     const item = itemMap.get(t.inventoryItemId);
-    if (!item) return true;
+    if (!item) return false;
     const targetUnitPrice = calculatePreferredPrice(item.trueCost, targetMarkup);
     return t.amount >= targetUnitPrice * (t.quantity ?? 1);
   });
-  const meetRate = clothingSales.length > 0 ? (salesMeetingTarget.length / clothingSales.length) * 100 : 100;
+
+  const validClothingSales = clothingSales.filter(t => t.inventoryItemId && itemMap.has(t.inventoryItemId));
+  const meetRate = validClothingSales.length > 0
+    ? (salesMeetingTarget.length / validClothingSales.length) * 100
+    : 0;
 
   // 2. Monthly Grouping
   const monthlyData: { 
@@ -189,6 +193,9 @@ export default function ReportsView({ transactions, inventoryItems, targetMarkup
                 </text>
                 <text x="32" y="174" className="text-[9px] font-mono font-bold fill-slate-500 text-right" textAnchor="end">
                   ৳0
+                </text>
+                <text x="480" y="174" className="text-[8px] font-sans fill-slate-400" textAnchor="end">
+                  (Taka)
                 </text>
 
                 {sortedMonths.map((monthKey, idx) => {

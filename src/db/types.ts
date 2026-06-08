@@ -3,7 +3,9 @@ export type TransactionCategory =
   | 'tailoring_expense'
   | 'clothing_overhead'
   | 'tailoring_income'
-  | 'clothing_income';
+  | 'clothing_income'
+  | 'cost_of_goods_sold'
+  | 'supplier_return';
 
 export type TransactionStatus = 'active' | 'refunded';
 
@@ -25,6 +27,7 @@ export interface ShipmentRecord {
   courierFee: number;
   deliveryDate: Date;
   courierTransactionId: number | null;
+  supplier: string | null;
 }
 
 export interface InventoryItemRecord {
@@ -54,4 +57,10 @@ export interface DashboardMetrics {
 
 export interface ShipmentWithItems extends ShipmentRecord {
   items: InventoryItemRecord[];
+}
+
+export interface ExchangeItem {
+  inventoryItemId: number;
+  quantity: number;
+  reason: 'faulty' | 'unsold';
 }

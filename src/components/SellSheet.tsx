@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { executeProductSale } from '../db/queries/inventory';
 import { calculatePreferredPrice } from '../lib/math/pricing';
 import { roundPrice, formatCurrency } from '../lib/math/rounding';
@@ -27,6 +28,7 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
   const [quantity, setQuantity] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const preferredPrice = item ? calculatePreferredPrice(item.trueCost, targetMarkup) : 0;
 
@@ -34,6 +36,7 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
     if (isOpen && item) {
       setRetailPriceStr(`${Math.round(preferredPrice / 100)}`);
       setQuantity(1);
+      setShowAdvanced(false);
     } else {
       setRetailPriceStr('');
     }
@@ -49,11 +52,16 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
 
       const parsedPrice = parseFloat(retailPriceStr);
       const scaledPrice = Math.round(parsedPrice * 100);
-      const roundedPrice = roundPrice(scaledPrice);
 
-      if (isNaN(roundedPrice) || roundedPrice <= 0) {
+      if (isNaN(scaledPrice) || scaledPrice <= 0) {
         throw new Error('Retail sale price must be a positive number.');
       }
+
+      if (scaledPrice < 100) {
+        throw new Error('Sale price must be at least 1 Taka (100 Poisha).');
+      }
+
+      const roundedAmount = roundPrice(scaledPrice);
 
       if (!item) {
         throw new Error('No item selected.');
@@ -63,7 +71,7 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
         throw new Error(`Insufficient stock: ${item.quantity} available, ${quantity} requested.`);
       }
 
-      await executeProductSale(item.id, roundedPrice * quantity, note, customerName, quantity);
+      await executeProductSale(item.id, roundedAmount * quantity, note, customerName, quantity);
 
       setRetailPriceStr('');
       setNote('');
@@ -97,7 +105,7 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
         <div className="bg-slate-50 rounded-xl border-2 border-black p-4 space-y-3 shadow-neobrutal-sm">
           <div className="flex justify-between items-start gap-2">
             <div>
-              <span className="text-[9px] font-sans font-bold text-slate-500 uppercase tracking-wider">Product Batch #{item.id}</span>
+              <span className="text-[9px] font-sans font-bold text-slate-500 uppercase tracking-wider">Selling from — Batch #{item.id}</span>
               <h3 className="text-base sm:text-lg font-sans font-bold text-black leading-tight mt-0.5">{item.brand}</h3>
             </div>
             <span className={`text-[9px] font-sans font-bold px-2 py-0.5 rounded-md border-2 border-black uppercase tracking-wider shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] shrink-0 ${
@@ -107,6 +115,10 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
             }`}>
               {item.quantity} In Stock
             </span>
+          </div>
+
+          <div className="bg-blue-50 border-2 border-black rounded-lg p-2 text-[10px] font-sans font-bold text-black">
+            FIFO: Selling from oldest batch with sufficient stock.
           </div>
 
           <div className="border-t-2 border-black pt-3 grid grid-cols-3 gap-2 text-[10px] font-mono">
@@ -145,6 +157,23 @@ export default function SellSheet({ isOpen, onClose, onSave, item, targetMarkup 
             />
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="w-full flex items-center gap-2 text-xs font-sans font-bold text-slate-600 uppercase tracking-wider py-2 min-h-[36px] cursor-pointer"
+        >
+          {showAdvanced ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          Pick Specific Batch (Advanced)
+        </button>
+
+        {showAdvanced && (
+          <div className="bg-slate-100 rounded-xl border-2 border-black p-3 space-y-2">
+            <p className="text-[10px] font-sans text-slate-600">
+              Currently selling from Batch #{item.id} ({item.brand}). To sell from a different batch, use the Transaction Form instead.
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-sans font-bold text-slate-700 uppercase">Customer Name (Optional)</label>
