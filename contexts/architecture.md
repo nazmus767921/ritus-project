@@ -12,7 +12,7 @@
 - `src/components/` — Houses modular UI views, action sheets, and modal patterns. All code in this folder must use pure Tailwind CSS classes.
 - `src/db/` — Declares relational tables, defines columns, and runs database initialization commands.
 - `src/lib/math/` — Executes client-side mathematical calculations for cost distribution formulas.
-- `src/styles/` — Manages global configuration files and core Tailwind design tokens.
+- `src/index.css` — Global Tailwind CSS v4 theme configuration and design tokens.
 
 ## Storage Model
 - **wa-sqlite (Local Relational Database)**: Persists operational schemas on the user's device:

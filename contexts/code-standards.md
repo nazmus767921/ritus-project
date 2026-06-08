@@ -28,4 +28,4 @@
 - `src/components/ui/` — Houses structural components like forms, buttons, and system lists.
 - `src/db/` — Contains database table schemas, connection setups, and direct query scripts.
 - `src/lib/math/` — Collects mathematical calculation functions for Option A distribution logic.
-- `src/types/` — Declares shared TypeScript types and model interfaces.
+- `src/db/types.ts` — Declares shared TypeScript types and model interfaces.
